@@ -8,7 +8,9 @@ describe('canEdit', () => {
   it('allows editable types and refuses computed ones', () => {
     expect(canEdit(col('status'), undefined)).toBe(true);
     expect(canEdit(col('formula'), undefined)).toBe(false);
-    expect(canEdit(col('relation'), undefined)).toBe(false);
+    expect(canEdit(col('people'), undefined)).toBe(false);
+    expect(canEdit(col('relation'), { kind: 'relation', value: ['a'], hasMore: false })).toBe(true);
+    expect(canEdit(col('relation'), { kind: 'relation', value: ['a'], hasMore: true })).toBe(false); // Notion truncated it
   });
   it('refuses formatted text (Q14)', () => {
     expect(canEdit(col('rich_text'), { kind: 'text', value: 'x' })).toBe(true);

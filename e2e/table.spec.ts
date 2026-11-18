@@ -53,7 +53,8 @@ test('adding a database renders a typed table', async ({ page }) => {
     'https://jobs.example.com/northwind',
   );
   await expect(northwind).toContainText('47'); // formula result
-  await expect(northwind).toContainText('2 linked'); // relation
+  await expect(northwind).toContainText('Ada Lovelace'); // relation titles from the related database
+  await expect(northwind).toContainText('Grace Hopper');
   await expect(northwind).toContainText('not shown'); // unsupported button column
   await expect(northwind.getByRole('link', { name: 'Open in Notion' })).toHaveAttribute(
     'href',

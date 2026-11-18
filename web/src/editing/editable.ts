@@ -13,6 +13,7 @@ const EDITABLE: ReadonlySet<ColumnType> = new Set<ColumnType>([
   'url',
   'email',
   'phone_number',
+  'relation',
 ]);
 
 export function isEditableType(column: Column): boolean {
@@ -22,7 +23,10 @@ export function isEditableType(column: Column): boolean {
 /** Editable for this cell: the type is editable and, for text, it has no formatting (Q14). */
 export function canEdit(column: Column, value: CellValue | undefined): boolean {
   if (!isEditableType(column)) return false;
-  return !(value?.kind === 'text' && value.rich);
+  if (value?.kind === 'text' && value.rich) return false;
+  // Notion only returns the first 25 links of a big relation; editing would drop the rest.
+  if (value?.kind === 'relation' && value.hasMore) return false;
+  return true;
 }
 
 /** The value an empty cell of this column has, in the shape its editor works with. */
@@ -46,6 +50,8 @@ export function emptyValue(column: Column): CellValue {
     case 'email':
     case 'phone_number':
       return { kind: 'link', value: null, linkType: column.type };
+    case 'relation':
+      return { kind: 'relation', value: [], hasMore: false };
     default:
       return { kind: 'empty' };
   }

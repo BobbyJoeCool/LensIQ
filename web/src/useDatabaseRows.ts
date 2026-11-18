@@ -42,6 +42,7 @@ export function useDatabaseRows(id: string, { paused = false }: { paused?: boole
     onSuccess: (data) => {
       queryClient.setQueryData(['rows', id], data);
       void queryClient.invalidateQueries({ queryKey: ['databases'] });
+      void queryClient.invalidateQueries({ queryKey: ['relations', id] }); // a full sync re-reads related titles
     },
   });
 

@@ -1,10 +1,21 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import type { ReactNode } from 'react';
 import type { CellValue, Column } from '@lensiq/shared';
+import { CellContext } from '../../cellContext';
 import { Cell } from './Cell';
 
 const col = (over: Partial<Column> = {}): Column => ({ id: 'c', name: 'C', type: 'rich_text', ...over });
-const show = (value: CellValue | undefined, column: Column = col()) => render(<Cell value={value} column={column} />);
+const wrap = (node: ReactNode, dbId?: string) => (
+  <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+    {dbId ? <CellContext.Provider value={{ dbId }}>{node}</CellContext.Provider> : node}
+  </QueryClientProvider>
+);
+const show = (value: CellValue | undefined, column: Column = col(), rowId?: string, dbId?: string) =>
+  render(wrap(<Cell value={value} column={column} rowId={rowId} />, dbId));
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe('Cell', () => {
   it('shows a dash for empty values', () => {
@@ -38,9 +49,27 @@ describe('Cell', () => {
     expect(screen.getByRole('link')).toHaveAttribute('href', 'mailto:a@b.co');
   });
 
-  it('counts relations, marking has_more', () => {
-    show({ kind: 'relation', value: ['a', 'b'], hasMore: true });
+  it('counts relations when titles are not available, marking has_more', () => {
+    show({ kind: 'relation', value: ['a', 'b'], hasMore: true }, col({ type: 'relation' }));
     expect(screen.getByText('2+ linked')).toBeInTheDocument();
+  });
+
+  it('shows linked page titles from the related database (#30)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({ available: true, options: [{ id: 'a-1', title: 'Ada Lovelace' }, { id: 'b', title: 'Grace Hopper' }] }))),
+    );
+    show({ kind: 'relation', value: ['a1', 'b'], hasMore: false }, col({ type: 'relation', id: 'rel' }), 'p1', 'ds1');
+    expect(await screen.findByText('↗ Ada Lovelace')).toBeInTheDocument();
+    expect(screen.getByText('↗ Grace Hopper')).toBeInTheDocument();
+    expect(fetch).toHaveBeenCalledWith('/api/databases/ds1/relations/rel', expect.anything());
+  });
+
+  it('links Notion-hosted files through the API for a fresh URL (#31)', () => {
+    const files: CellValue = { kind: 'files', value: [{ name: 'bill.pdf', url: 'https://s3/old', hosted: true }, { name: 'site', url: 'https://x.dev' }] };
+    show(files, col({ type: 'files', id: 'f' }), 'p1', 'ds1');
+    expect(screen.getByRole('link', { name: 'bill.pdf' })).toHaveAttribute('href', '/api/databases/ds1/rows/p1/files/f/0');
+    expect(screen.getByRole('link', { name: 'site' })).toHaveAttribute('href', 'https://x.dev'); // external links don't expire
   });
 
   it('renders rollup lists', () => {

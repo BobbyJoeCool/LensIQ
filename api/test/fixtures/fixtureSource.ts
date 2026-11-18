@@ -11,6 +11,13 @@ import type { StoredRow } from '../../src/store.js';
 
 export const JOB_SEARCH_DB_ID = '1f2e3d4c5b6a47988796a5b4c3d2e1f0';
 export const JOB_SEARCH_DS_ID = 'aaaabbbb-cccc-4ddd-8eee-ffff00001111';
+/** The related Contacts data source, shared with the connection. */
+export const CONTACTS_DS_ID = 'cccc0000-1111-4222-8333-444455556666';
+export const CONTACTS = [
+  { id: 'c0', title: 'Ada Lovelace' },
+  { id: 'c1', title: 'Grace Hopper' },
+  { id: 'c2', title: 'Alan Turing' },
+];
 /** A valid-looking ID the integration "can't see". */
 export const UNSHARED_DB_ID = '00000000000000000000000000000bad';
 
@@ -36,7 +43,8 @@ const properties: Record<string, RawProperty> = {
     multi_select: { options: [{ id: 't1', name: 'Frontend', color: 'purple' }, { id: 't2', name: 'Full stack', color: 'pink' }] },
   },
   'Days Since Applied': { id: 'days', name: 'Days Since Applied', type: 'formula', formula: { expression: '' } },
-  Contacts: { id: 'rel', name: 'Contacts', type: 'relation', relation: {} },
+  Contacts: { id: 'rel', name: 'Contacts', type: 'relation', relation: { data_source_id: CONTACTS_DS_ID } },
+  Resume: { id: 'file', name: 'Resume', type: 'files', files: {} },
   Action: { id: 'btn', name: 'Action', type: 'button', button: {} },
 };
 
@@ -64,6 +72,11 @@ function page(
     'Days Since Applied': { id: 'days', type: 'formula', formula: { type: 'number', number: v.days } },
     Contacts: { id: 'rel', type: 'relation', relation: Array.from({ length: v.contacts }, (_, i) => ({ id: `c${i}` })), has_more: false },
     Action: { id: 'btn', type: 'button', button: {} },
+    Resume: {
+      id: 'file',
+      type: 'files',
+      files: id === 'p-1' ? [{ name: 'resume.pdf', type: 'file', file: { url: 'https://files.example.com/resume.pdf?sig=0', expiry_time: '' } }] : [],
+    },
   };
   return { id, url: `https://www.notion.so/${id.replace(/-/g, '')}`, created_time: created, last_edited_time: created, properties: props };
 }
@@ -109,6 +122,7 @@ export class FixtureNotionSource implements NotionSource {
     this.pages = clone(BASE_PAGES);
     this.clock = Date.parse('2026-11-18T12:00:00.000Z');
     this.nextId = 100;
+    this.signatures = 0;
   }
 
   /** Advances the fake clock so each write gets a later last-edited time. */
@@ -147,8 +161,20 @@ export class FixtureNotionSource implements NotionSource {
     return p;
   }
 
+  private signatures = 0;
+
   async fetchRow(pageId: string): Promise<StoredRow> {
-    return toStored(this.find(pageId));
+    const p = this.find(pageId);
+    // Like Notion, every read signs hosted file URLs afresh.
+    const files = p.properties.Resume as RawProperty | undefined;
+    for (const f of files?.files ?? []) if (f.file) f.file.url = f.file.url.replace(/sig=\d+/, `sig=${++this.signatures}`);
+    return toStored(p);
+  }
+
+  /** Titles of the related Contacts data source; anything else isn't shared. */
+  async fetchTitles(dataSourceId: string): Promise<{ id: string; title: string }[]> {
+    if (dataSourceId === CONTACTS_DS_ID) return CONTACTS.map((c) => ({ ...c }));
+    throw new AppError(404, 'notion_not_found', 'not shared');
   }
 
   /** Applies a Notion `properties` payload (keyed by property ID) to a page. */
@@ -180,6 +206,8 @@ export class FixtureNotionSource implements NotionSource {
         raw = v ? resolveOption(v) : null;
       } else if (sp.type === 'multi_select') {
         raw = (v as any[]).map(resolveOption);
+      } else if (sp.type === 'relation') {
+        raw = (v as { id: string }[]).map((r) => ({ id: r.id }));
       } else if (sp.type === 'date') {
         raw = v ? { start: v.start, end: v.end ?? null, time_zone: null } : null;
       }

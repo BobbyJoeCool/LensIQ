@@ -62,6 +62,35 @@ const MIGRATIONS: string[] = [
     updated_at TEXT NOT NULL
   );
   `,
+  // v4 (Phase 4): calendar views (SQLite can't change a CHECK, so the table is
+  // rebuilt) and cached page titles of related databases for relation columns.
+  `
+  CREATE TABLE views_v4 (
+    id             TEXT PRIMARY KEY,
+    data_source_id TEXT NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    type           TEXT NOT NULL CHECK (type IN ('table', 'board', 'chart', 'calendar')),
+    config         TEXT NOT NULL,
+    position       INTEGER NOT NULL,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL
+  );
+  INSERT INTO views_v4 SELECT * FROM views;
+  DROP TABLE views;
+  ALTER TABLE views_v4 RENAME TO views;
+  CREATE INDEX views_by_data_source ON views (data_source_id, position);
+  CREATE TABLE titles (
+    page_id        TEXT NOT NULL,
+    data_source_id TEXT NOT NULL,              -- the related data source (need not be connected)
+    title          TEXT NOT NULL,
+    PRIMARY KEY (data_source_id, page_id)
+  );
+  CREATE TABLE title_sources (
+    data_source_id TEXT PRIMARY KEY,
+    fetched_at     TEXT NOT NULL,
+    available      INTEGER NOT NULL            -- 0 when Notion refused (not shared)
+  );
+  `,
 ];
 
 interface DatabaseRecord {
@@ -220,6 +249,30 @@ export class Store {
       )
       .get(dataSourceId, pageId) as RowRecord | undefined;
     return r ? toRow(r) : null;
+  }
+
+  /** Replaces the cached titles of a related data source. */
+  replaceTitles(dataSourceId: string, titles: { id: string; title: string }[] | null, fetchedAt: string): void {
+    this.db.transaction(() => {
+      this.db.prepare(`DELETE FROM titles WHERE data_source_id = ?`).run(dataSourceId);
+      const insert = this.db.prepare(`INSERT OR REPLACE INTO titles (page_id, data_source_id, title) VALUES (?, ?, ?)`);
+      for (const t of titles ?? []) insert.run(t.id, dataSourceId, t.title);
+      this.db
+        .prepare(`INSERT OR REPLACE INTO title_sources (data_source_id, fetched_at, available) VALUES (?, ?, ?)`)
+        .run(dataSourceId, fetchedAt, titles ? 1 : 0);
+    })();
+  }
+
+  /** Cached titles, or null if this related data source was never read. */
+  getTitles(dataSourceId: string): { available: boolean; options: { id: string; title: string }[] } | null {
+    const src = this.db.prepare(`SELECT available FROM title_sources WHERE data_source_id = ?`).get(dataSourceId) as
+      | { available: number }
+      | undefined;
+    if (!src) return null;
+    const options = this.db
+      .prepare(`SELECT page_id AS id, title FROM titles WHERE data_source_id = ? ORDER BY title COLLATE NOCASE`)
+      .all(dataSourceId) as { id: string; title: string }[];
+    return { available: src.available === 1, options };
   }
 
   /** True when the page is cached under this database. */

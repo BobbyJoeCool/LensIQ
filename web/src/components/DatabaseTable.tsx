@@ -92,7 +92,7 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
                   >
                     {i === 0 ? (
                       <span className="flex items-start justify-between gap-2">
-                        <Cell value={row.cells[col.id]} column={col} />
+                        <Cell value={row.cells[col.id]} column={col} rowId={row.id} />
                         <span className="flex shrink-0 gap-0.5">
                           {onOpenRow && inlineEdit && (
                             <button
@@ -122,7 +122,7 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
                         </span>
                       </span>
                     ) : (
-                      <Cell value={row.cells[col.id]} column={col} />
+                      <Cell value={row.cells[col.id]} column={col} rowId={row.id} />
                     )}
                     {isActive && editing && (
                       <div className="absolute left-0 top-0 z-30 min-w-full" onClick={(e) => e.stopPropagation()}>

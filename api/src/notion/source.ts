@@ -45,6 +45,8 @@ export interface NotionSource {
   createRow(dataSourceId: string, properties: Record<string, unknown>): Promise<StoredRow>;
   /** Moves a page to Notion's trash (restorable in Notion for 30 days). */
   trashRow(pageId: string): Promise<void>;
+  /** Page IDs and titles of a (related) data source, for relation columns. */
+  fetchTitles(dataSourceId: string): Promise<{ id: string; title: string }[]>;
 }
 
 const NOT_SHARED_HINT =
@@ -186,6 +188,14 @@ export class NotionApiSource implements NotionSource {
     }
   }
 
+  async fetchTitles(dataSourceId: string): Promise<{ id: string; title: string }[]> {
+    try {
+      return await fetchTitlesWith(this.client, dataSourceId);
+    } catch (err) {
+      throw toAppError(err);
+    }
+  }
+
   async trashRow(pageId: string): Promise<void> {
     try {
       await this.client.pages.update({ page_id: pageId, in_trash: true } as never);
@@ -193,6 +203,24 @@ export class NotionApiSource implements NotionSource {
       throw rowError(err);
     }
   }
+}
+
+/** Reads only the title property of every page (Notion's `filter_properties`), ~1 request per 100 pages. */
+async function fetchTitlesWith(client: InstanceType<typeof Client>, dataSourceId: string): Promise<{ id: string; title: string }[]> {
+  const ds = await client.dataSources.retrieve({ data_source_id: dataSourceId });
+  const props = ('properties' in ds ? ds.properties : {}) as Record<string, { id: string; type: string }>;
+  const titleProp = Object.values(props).find((p) => p.type === 'title');
+  const out: { id: string; title: string }[] = [];
+  for await (const page of iterateAllDataSourceRows(client, {
+    data_source_id: dataSourceId,
+    page_size: 100,
+    ...(titleProp ? { filter_properties: [titleProp.id] } : {}),
+  } as never)) {
+    if (page.object !== 'page' || !isFullPage(page) || page.in_trash) continue;
+    const t = Object.values(page.properties as Record<string, RawProperty>).find((p) => p.type === 'title');
+    out.push({ id: page.id, title: (t ? plainText(t.title) : '') || 'Untitled' });
+  }
+  return out;
 }
 
 /** Page-level errors: a missing page means the row was deleted, not that the database isn't shared. */

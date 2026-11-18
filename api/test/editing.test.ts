@@ -196,3 +196,48 @@ describe('SyncService.syncChanges', () => {
     expect(s.getDatabase(DS)?.lastSyncedAt).not.toBeNull();
   });
 });
+
+describe('relations and files (Phase 4)', () => {
+  it('serves related titles read during the full sync, and edits links', async () => {
+    const res = await app.inject({ method: 'GET', url: `/api/databases/${DS}/relations/rel` });
+    expect(res.json()).toEqual({
+      available: true,
+      options: [
+        { id: 'c0', title: 'Ada Lovelace' },
+        { id: 'c2', title: 'Alan Turing' },
+        { id: 'c1', title: 'Grace Hopper' },
+      ],
+    });
+    const edit = await patch('p-2', {
+      columnId: 'rel',
+      value: { kind: 'relation', value: ['c2'], hasMore: false },
+      expected: { kind: 'relation', value: [], hasMore: false },
+    });
+    expect(edit.statusCode).toBe(200);
+    expect(edit.json<Row>().cells.rel).toEqual({ kind: 'relation', value: ['c2'], hasMore: false });
+  });
+
+  it('reports a related database that is not shared', async () => {
+    const s = new Store(':memory:');
+    const sync = new SyncService(s, notion);
+    s.addDatabase({
+      id: 'x',
+      databaseId: null,
+      name: 'x',
+      schema: { columns: [{ id: 'r', name: 'Link', type: 'relation', relatedDataSourceId: 'unshared' }] },
+    });
+    expect(await sync.relationOptions('x', 'r')).toEqual({ available: false, options: [] });
+    await expect(sync.relationOptions('x', 'nope')).rejects.toMatchObject({ statusCode: 404 });
+  });
+
+  it('redirects file links to a freshly signed URL on every open', async () => {
+    const url = `/api/databases/${DS}/rows/p-1/files/file/0`;
+    const first = await app.inject({ method: 'GET', url });
+    const second = await app.inject({ method: 'GET', url });
+    expect(first.statusCode).toBe(302);
+    expect(first.headers.location).toMatch(/resume\.pdf\?sig=\d+/);
+    expect(second.headers.location).not.toBe(first.headers.location);
+    expect((await app.inject({ method: 'GET', url: `/api/databases/${DS}/rows/p-1/files/file/5` })).statusCode).toBe(404);
+    expect((await app.inject({ method: 'GET', url: `/api/databases/${DS}/rows/p-1/files/file/x` })).statusCode).toBe(400);
+  });
+});

@@ -5,6 +5,7 @@
  */
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import type { CellValue, Column, SelectOption } from '@lensiq/shared';
+import { useRelationOptions } from '../../cellContext';
 import { OPTION_COLORS } from '../../format';
 import { localIso, numberToText, parseNumber, splitIso } from '../../editing/editable';
 
@@ -38,6 +39,8 @@ export function CellEditor(props: EditorProps) {
       return <DateEditor {...props} />;
     case 'checkbox':
       return <CheckboxEditor {...props} />;
+    case 'relation':
+      return <RelationEditor {...props} />;
     default:
       return null;
   }
@@ -373,6 +376,84 @@ function DateEditor({ column, value, onCommit, onCancel }: EditorProps) {
             Save
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/** Searchable picker over the related database's page titles (#30, Q20). */
+function RelationEditor({ column, value, onCommit, onCancel }: EditorProps) {
+  const options = useRelationOptions(column);
+  const norm = (id: string) => id.replace(/-/g, '');
+  const [chosen, setChosen] = useState<string[]>(value.kind === 'relation' ? value.value : []);
+  const [query, setQuery] = useState('');
+  const commit = (ids: string[]) => onCommit({ kind: 'relation', value: ids, hasMore: false });
+  const list = options.data?.options ?? [];
+  const q = query.trim().toLowerCase();
+  const filtered = (q ? list.filter((o) => o.title.toLowerCase().includes(q)) : list).slice(0, 50);
+  const title = new Map(list.map((o) => [norm(o.id), o.title]));
+  const has = (id: string) => chosen.some((c) => norm(c) === norm(id));
+  const toggle = (id: string) => setChosen(has(id) ? chosen.filter((c) => norm(c) !== norm(id)) : [...chosen, id]);
+
+  return (
+    <div
+      className="w-72 max-w-full rounded-md border border-slate-300 bg-white p-2 shadow-lg dark:border-slate-600 dark:bg-slate-900"
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          onCancel();
+        }
+      }}
+    >
+      {chosen.length > 0 && (
+        <div className="mb-2 flex flex-wrap gap-1" aria-label="Linked pages">
+          {chosen.map((id) => (
+            <span key={id} className="inline-flex max-w-full items-center gap-1 rounded border border-slate-200 px-1.5 py-0.5 text-xs dark:border-slate-700">
+              <span className="truncate">{title.get(norm(id)) ?? 'Linked page'}</span>
+              <button type="button" aria-label={`Unlink ${title.get(norm(id)) ?? 'page'}`} onClick={() => toggle(id)} className="rounded px-0.5 hover:bg-black/10">
+                ×
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      {options.isPending ? (
+        <p className="px-2 py-2 text-sm text-slate-500">Loading pages…</p>
+      ) : options.data && !options.data.available ? (
+        <p className="px-2 py-2 text-sm text-slate-600 dark:text-slate-300">
+          Share the related database with the LensIQ connection in Notion (··· → Connections), then press Refresh, to pick pages here.
+        </p>
+      ) : (
+        <>
+          <input aria-label={column.name} autoFocus className={inputClass} placeholder="Search pages…" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <ul role="listbox" aria-label={`${column.name} pages`} aria-multiselectable="true" className="mt-1 max-h-56 overflow-auto">
+            {filtered.map((o) => (
+              <li key={o.id}>
+                <button
+                  type="button"
+                  role="option"
+                  aria-selected={has(o.id)}
+                  onMouseDown={(e) => e.preventDefault()}
+                  onClick={() => toggle(o.id)}
+                  className="flex min-h-10 w-full items-center justify-between gap-2 rounded px-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                >
+                  <span className="truncate">{o.title}</span>
+                  {has(o.id) && <span aria-hidden>✓</span>}
+                </button>
+              </li>
+            ))}
+            {filtered.length === 0 && <li className="px-2 py-2 text-sm text-slate-500">No matching pages</li>}
+          </ul>
+        </>
+      )}
+      <div className="mt-2 flex justify-between gap-2">
+        <button type="button" className="rounded px-2 py-1 text-xs text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800" onClick={() => commit([])}>
+          Clear
+        </button>
+        <button type="button" className="rounded bg-sky-600 px-3 py-1 text-xs font-medium text-white hover:bg-sky-700" onClick={() => commit(chosen)}>
+          Done
+        </button>
       </div>
     </div>
   );

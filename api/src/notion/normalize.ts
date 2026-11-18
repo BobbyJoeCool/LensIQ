@@ -78,6 +78,7 @@ export function toSchema(properties: Record<string, RawProperty>): Schema {
       column.options = (p[p.type]?.options ?? []).map(toOption);
     }
     if (p.type === 'number' && p.number?.format) column.numberFormat = p.number.format;
+    if (p.type === 'relation' && p.relation?.data_source_id) column.relatedDataSourceId = String(p.relation.data_source_id);
     return column;
   });
   // Title first; otherwise keep Notion's order.
@@ -94,7 +95,9 @@ function userName(u: any): string {
 }
 
 function toFile(f: any): FileValue {
-  return { name: f?.name ?? 'file', url: f?.file?.url ?? f?.external?.url ?? null };
+  const file: FileValue = { name: f?.name ?? 'file', url: f?.file?.url ?? f?.external?.url ?? null };
+  if (f?.type === 'file' || (f?.file && !f?.external)) file.hosted = true;
+  return file;
 }
 
 /** Normalizes one Notion property value into a CellValue. */

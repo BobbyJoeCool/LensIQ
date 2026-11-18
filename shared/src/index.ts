@@ -61,6 +61,8 @@ export interface Column {
   options?: SelectOption[];
   /** Notion number format, e.g. `dollar`, `percent`, `number`. */
   numberFormat?: string;
+  /** Relation columns: the data source the relation points at. */
+  relatedDataSourceId?: string;
 }
 
 export interface Schema {
@@ -76,6 +78,8 @@ export interface DateValue {
 export interface FileValue {
   name: string;
   url: string | null;
+  /** Uploaded to Notion: its URL expires after about an hour, so links go through the API for a fresh one. */
+  hosted?: boolean;
 }
 
 /**
@@ -176,7 +180,7 @@ export interface ApiError {
 // Views and dashboards (Phase 3)
 // ---------------------------------------------------------------------------
 
-export type ViewType = 'table' | 'board' | 'chart';
+export type ViewType = 'table' | 'board' | 'chart' | 'calendar';
 
 /**
  * Filter operators. Which ones apply depends on the column's value kind
@@ -269,7 +273,25 @@ export interface ChartConfig extends ViewConfigBase {
   hideEmpty: boolean;
 }
 
-export type ViewConfig = TableConfig | BoardConfig | ChartConfig;
+export interface CalendarConfig extends ViewConfigBase {
+  /** A date column. Null until chosen. */
+  dateColumn: string | null;
+}
+
+export type ViewConfig = TableConfig | BoardConfig | ChartConfig | CalendarConfig;
+
+/** A page in a relation's target database, for showing titles and picking links. */
+export interface RelationOption {
+  id: string;
+  title: string;
+}
+
+/** `GET /api/databases/:id/relations/:columnId`. */
+export interface RelationOptionsResponse {
+  /** False when the related database isn't shared with the LensIQ connection. */
+  available: boolean;
+  options: RelationOption[];
+}
 
 export interface View {
   id: string;

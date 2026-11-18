@@ -5,6 +5,7 @@ import type {
   CreateRowRequest,
   CreateViewRequest,
   Dashboard,
+  RelationOptionsResponse,
   UpdateDashboardRequest,
   UpdateViewRequest,
   View,
@@ -69,6 +70,12 @@ export const api = {
     request<Row>(`${db(id)}/rows`, { method: 'POST', body: JSON.stringify(body) }),
   deleteRow: (id: string, pageId: string) =>
     request<void>(`${db(id)}/rows/${encodeURIComponent(pageId)}`, { method: 'DELETE' }),
+
+  relationOptions: (id: string, columnId: string) =>
+    request<RelationOptionsResponse>(`${db(id)}/relations/${encodeURIComponent(columnId)}`),
+  /** Link that redirects to a fresh URL for a Notion-hosted file (they expire after about an hour). */
+  fileHref: (id: string, pageId: string, columnId: string, index: number) =>
+    `${db(id)}/rows/${encodeURIComponent(pageId)}/files/${encodeURIComponent(columnId)}/${index}`,
 
   listViews: (databaseId?: string) =>
     request<View[]>(databaseId ? `/api/views?databaseId=${encodeURIComponent(databaseId)}` : '/api/views'),

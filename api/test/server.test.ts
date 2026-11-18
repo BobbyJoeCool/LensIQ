@@ -39,6 +39,9 @@ function fakeNotion(rows: StoredRow[]): NotionSource & { rowCalls: number } {
       throw new Error('not used');
     },
     async trashRow() {},
+    async fetchTitles() {
+      return [];
+    },
   };
 }
 
