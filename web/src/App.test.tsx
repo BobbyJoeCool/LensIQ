@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RowsResponse } from '@lensiq/shared';
 import { App, parseHash } from './App';
+import { resetSyncMemory } from './components/DatabaseView';
 
 describe('parseHash', () => {
   it('reads the three routes', () => {
@@ -50,6 +51,7 @@ describe('App', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     window.location.hash = '';
+    resetSyncMemory();
   });
 
   it('shows the add form when no databases are connected', async () => {
@@ -61,13 +63,17 @@ describe('App', () => {
   it('opens the first database and renders its table', async () => {
     mockFetch({
       '/api/databases': [{ id: 'ds1', databaseId: 'db1', name: 'Job Search', lastSyncedAt: null, rowCount: 1 }],
-      '/api/databases/ds1/rows': rowsResponse,
+      '/api/databases/ds1/rows?sync=none': rowsResponse,
+      '/api/databases/ds1/refresh': rowsResponse,
     });
     renderApp();
     expect(await screen.findByRole('heading', { name: 'Job Search' })).toBeInTheDocument();
     expect(screen.getByRole('columnheader', { name: 'Company' })).toBeInTheDocument();
     expect(screen.getByText('Acme')).toBeInTheDocument();
-    expect(screen.getByTestId('sync-status')).toHaveTextContent('1 row · synced just now');
+    // Opening the database runs a full sync behind the cached rows (Q15).
+    await waitFor(() => expect(screen.getByTestId('sync-status')).toHaveTextContent('1 row · synced just now'));
+    const calls = (fetch as unknown as { mock: { calls: [string, RequestInit?][] } }).mock.calls;
+    expect(calls.some(([url, init]) => url === '/api/databases/ds1/refresh' && init?.method === 'POST')).toBe(true);
   });
 
   it('shows API errors', async () => {

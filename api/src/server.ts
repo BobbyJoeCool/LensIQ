@@ -29,7 +29,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   app.setErrorHandler((err, req, reply) => {
     if (err instanceof AppError) {
-      return reply.code(err.statusCode).send({ error: err.code, message: err.message });
+      return reply.code(err.statusCode).send({ ...err.details, error: err.code, message: err.message });
     }
     const e = err as { validation?: unknown; statusCode?: number; message?: string };
     if (e.validation) {

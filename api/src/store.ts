@@ -36,6 +36,11 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX rows_by_data_source ON rows (data_source_id, created_time);
   `,
+  // v2 (Phase 2): when the last incremental sync started. Its next query asks
+  // Notion for rows edited since then.
+  `
+  ALTER TABLE databases ADD COLUMN changes_checked_at TEXT;
+  `,
 ];
 
 interface DatabaseRecord {
@@ -44,6 +49,7 @@ interface DatabaseRecord {
   name: string;
   schema: string;
   last_synced_at: string | null;
+  changes_checked_at: string | null;
   row_count: number;
 }
 
@@ -142,6 +148,67 @@ export class Store {
     })();
   }
 
+  /** When the last full load or incremental sync started; null if never synced. */
+  getChangesCursor(id: string): string | null {
+    const r = this.db.prepare(`SELECT last_synced_at, changes_checked_at FROM databases WHERE id = ?`).get(id) as
+      | { last_synced_at: string | null; changes_checked_at: string | null }
+      | undefined;
+    if (!r) return null;
+    const times = [r.last_synced_at, r.changes_checked_at].filter((t): t is string => t !== null).sort();
+    return times.at(-1) ?? null;
+  }
+
+  /**
+   * Applies an incremental sync: updates the name and schema, inserts or
+   * replaces the changed rows, and moves the cursor.
+   */
+  applyChanges(id: string, name: string, schema: Schema, rows: StoredRow[], checkedAt: string): void {
+    this.db.transaction(() => {
+      this.db
+        .prepare(`UPDATE databases SET name = ?, schema = ?, changes_checked_at = ? WHERE id = ?`)
+        .run(name, JSON.stringify(schema), checkedAt, id);
+      for (const row of rows) this.upsertRow(id, row);
+    })();
+  }
+
+  /** Inserts or replaces one cached row. */
+  upsertRow(dataSourceId: string, row: StoredRow): void {
+    this.db
+      .prepare(
+        `INSERT INTO rows (page_id, data_source_id, url, created_time, last_edited_time, cells)
+         VALUES (?, ?, ?, ?, ?, ?)
+         ON CONFLICT (page_id) DO UPDATE SET
+           url = excluded.url, last_edited_time = excluded.last_edited_time, cells = excluded.cells`,
+      )
+      .run(row.id, dataSourceId, row.url, row.createdTime, row.lastEditedTime, JSON.stringify(row.cells));
+  }
+
+  deleteRow(dataSourceId: string, pageId: string): void {
+    this.db.prepare(`DELETE FROM rows WHERE data_source_id = ? AND page_id = ?`).run(dataSourceId, pageId);
+  }
+
+  /** Updates a database's name and schema without touching rows or sync times. */
+  updateSchema(id: string, name: string, schema: Schema): void {
+    this.db.prepare(`UPDATE databases SET name = ?, schema = ? WHERE id = ?`).run(name, JSON.stringify(schema), id);
+  }
+
+  getRow(dataSourceId: string, pageId: string): Row | null {
+    const r = this.db
+      .prepare(
+        `SELECT page_id, url, created_time, last_edited_time, cells FROM rows WHERE data_source_id = ? AND page_id = ?`,
+      )
+      .get(dataSourceId, pageId) as RowRecord | undefined;
+    return r ? toRow(r) : null;
+  }
+
+  /** True when the page is cached under this database. */
+  hasRow(dataSourceId: string, pageId: string): boolean {
+    return (
+      this.db.prepare(`SELECT 1 FROM rows WHERE data_source_id = ? AND page_id = ?`).get(dataSourceId, pageId) !==
+      undefined
+    );
+  }
+
   getRows(id: string): Row[] {
     const records = this.db
       .prepare(
@@ -149,11 +216,15 @@ export class Store {
          FROM rows WHERE data_source_id = ? ORDER BY created_time, page_id`,
       )
       .all(id) as RowRecord[];
-    return records.map((r) => ({
-      id: r.page_id,
-      url: r.url,
-      lastEditedTime: r.last_edited_time,
-      cells: JSON.parse(r.cells) as Row['cells'],
-    }));
+    return records.map(toRow);
   }
+}
+
+function toRow(r: RowRecord): Row {
+  return {
+    id: r.page_id,
+    url: r.url,
+    lastEditedTime: r.last_edited_time,
+    cells: JSON.parse(r.cells) as Row['cells'],
+  };
 }

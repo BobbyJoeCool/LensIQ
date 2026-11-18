@@ -49,6 +49,21 @@ export function plainText(richText: any[] | null | undefined): string {
   return (richText ?? []).map((t) => t?.plain_text ?? '').join('');
 }
 
+/**
+ * True when rich text holds anything plain text can't round-trip: formatting,
+ * colors, links, mentions or equations. LensIQ won't edit such cells (Q14).
+ */
+export function isRich(richText: any[] | null | undefined): boolean {
+  return (richText ?? []).some((t) => {
+    if (!t) return false;
+    if (t.type && t.type !== 'text') return true;
+    if (t.text?.link || t.href) return true;
+    const a = t.annotations;
+    if (!a) return false;
+    return Boolean(a.bold || a.italic || a.strikethrough || a.underline || a.code) || (a.color && a.color !== 'default');
+  });
+}
+
 /** Builds the cached schema from a data source's `properties` map. */
 export function toSchema(properties: Record<string, RawProperty>): Schema {
   const columns: Column[] = Object.entries(properties).map(([key, p]) => {
@@ -88,8 +103,11 @@ export function toCell(p: RawProperty | undefined): CellValue {
   const v = p[p.type];
   switch (p.type) {
     case 'title':
-    case 'rich_text':
-      return { kind: 'text', value: plainText(v) };
+    case 'rich_text': {
+      const cell: CellValue = { kind: 'text', value: plainText(v) };
+      if (isRich(v)) cell.rich = true;
+      return cell;
+    }
     case 'number':
       return { kind: 'number', value: typeof v === 'number' ? v : null };
     case 'checkbox':

@@ -19,6 +19,17 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ NODE_ENV: 'development' })).toThrow(/NOTION_TOKEN/);
   });
 
+  it('trims surrounding whitespace from the token', () => {
+    expect(loadConfig({ NODE_ENV: 'development', NOTION_TOKEN: '  ntn_abc\n' }).notionToken).toBe('ntn_abc');
+  });
+
+  it('refuses a token with terminal paste codes or inner spaces', () => {
+    const dev = { NODE_ENV: 'development' };
+    expect(() => loadConfig({ ...dev, NOTION_TOKEN: '\x1b[200~ntn_abc\x1b[201~' })).toThrow(/control characters/);
+    expect(() => loadConfig({ ...dev, NOTION_TOKEN: 'ntn_abc\rdef' })).toThrow(/control characters/);
+    expect(() => loadConfig({ ...dev, NOTION_TOKEN: 'ntn abc' })).toThrow(/spaces/);
+  });
+
   it('builds the Access config in production', () => {
     const cfg = loadConfig({ NOTION_TOKEN: 't', CF_ACCESS_TEAM_DOMAIN: 'myteam', CF_ACCESS_AUD: 'aud' });
     expect(cfg.access).toEqual({ teamDomain: 'myteam.cloudflareaccess.com', audience: 'aud' });

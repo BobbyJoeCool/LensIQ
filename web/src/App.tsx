@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { api } from './api';
 import { AddDatabaseForm } from './components/AddDatabaseForm';
-import { DatabaseView } from './components/DatabaseView';
+import { DatabaseView, markSynced } from './components/DatabaseView';
 
 type Route = { page: 'home' } | { page: 'add' } | { page: 'db'; id: string };
 
@@ -76,7 +76,12 @@ export function App() {
         )}
         {databases.isPending && <p className="text-slate-500">Loading…</p>}
         {effective.page === 'add' && (
-          <AddDatabaseForm onAdded={(db) => (window.location.hash = `#/db/${encodeURIComponent(db.id)}`)} />
+          <AddDatabaseForm
+            onAdded={(db) => {
+              markSynced(db.id); // adding just did a full load
+              window.location.hash = `#/db/${encodeURIComponent(db.id)}`;
+            }}
+          />
         )}
         {effective.page === 'db' && <DatabaseView key={effective.id} id={effective.id} />}
       </main>

@@ -1,9 +1,21 @@
-import type { AddDatabaseRequest, ApiError, DatabaseDetail, DatabaseSummary, RowsResponse } from '@lensiq/shared';
+import type {
+  AddDatabaseRequest,
+  ApiError,
+  CreateRowRequest,
+  DatabaseDetail,
+  DatabaseSummary,
+  Row,
+  RowsResponse,
+  SyncMode,
+  UpdateCellRequest,
+} from '@lensiq/shared';
 
 export class ApiRequestError extends Error {
   constructor(
     readonly status: number,
     message: string,
+    /** The parsed JSON error body, when there was one (e.g. a ConflictResponse). */
+    readonly body?: unknown,
   ) {
     super(message);
   }
@@ -23,21 +35,32 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   }
   if (!res.ok) {
     let message = `Request failed (${res.status})`;
+    let body: unknown;
     try {
-      const body = (await res.json()) as Partial<ApiError>;
-      if (body.message) message = body.message;
+      body = await res.json();
+      const m = (body as Partial<ApiError>).message;
+      if (m) message = m;
     } catch {
       /* not JSON */
     }
-    throw new ApiRequestError(res.status, message);
+    throw new ApiRequestError(res.status, message, body);
   }
+  if (res.status === 204) return undefined as T;
   return (await res.json()) as T;
 }
+
+const db = (id: string) => `/api/databases/${encodeURIComponent(id)}`;
 
 export const api = {
   listDatabases: () => request<DatabaseSummary[]>('/api/databases'),
   addDatabase: (body: AddDatabaseRequest) =>
     request<DatabaseDetail>('/api/databases', { method: 'POST', body: JSON.stringify(body) }),
-  getRows: (id: string) => request<RowsResponse>(`/api/databases/${encodeURIComponent(id)}/rows`),
-  refresh: (id: string) => request<RowsResponse>(`/api/databases/${encodeURIComponent(id)}/refresh`, { method: 'POST' }),
+  getRows: (id: string, sync: SyncMode = 'none') => request<RowsResponse>(`${db(id)}/rows?sync=${sync}`),
+  refresh: (id: string) => request<RowsResponse>(`${db(id)}/refresh`, { method: 'POST' }),
+  updateCell: (id: string, pageId: string, body: UpdateCellRequest) =>
+    request<Row>(`${db(id)}/rows/${encodeURIComponent(pageId)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  createRow: (id: string, body: CreateRowRequest) =>
+    request<Row>(`${db(id)}/rows`, { method: 'POST', body: JSON.stringify(body) }),
+  deleteRow: (id: string, pageId: string) =>
+    request<void>(`${db(id)}/rows/${encodeURIComponent(pageId)}`, { method: 'DELETE' }),
 };
