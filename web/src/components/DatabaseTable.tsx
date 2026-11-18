@@ -12,13 +12,15 @@ interface Props {
   /** Desktop: click a cell to edit it. Otherwise a tap opens the row panel (Q13). */
   inlineEdit?: boolean;
   onOpenRow?: (rowId: string) => void;
+  /** Dashboard tiles: cap the height and scroll inside. */
+  compact?: boolean;
 }
 
 /**
  * Table built from the schema. The title column sticks to the left so rows
  * stay identifiable while scrolling sideways on a phone.
  */
-export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOpenRow }: Props) {
+export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOpenRow, compact = false }: Props) {
   const [active, setActive] = useState<{ rowId: string; columnId: string } | null>(null);
 
   if (rows.length === 0) {
@@ -40,7 +42,7 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
   };
 
   return (
-    <div className="overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+    <div className={`overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${compact ? 'max-h-96' : ''}`}>
       <table className="min-w-full border-separate border-spacing-0 text-sm" aria-label="Database rows">
         <thead>
           <tr>
