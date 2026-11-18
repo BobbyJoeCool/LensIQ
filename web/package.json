@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:demo": "VITE_DEMO=1 vite build --base=/LensIQ/ --outDir dist-demo",
+    "preview:demo": "vite preview --outDir dist-demo --base /LensIQ/ --strictPort --host 127.0.0.1",
     "typecheck": "tsc --noEmit -p .",
     "preview": "vite preview",
     "test": "vitest run"

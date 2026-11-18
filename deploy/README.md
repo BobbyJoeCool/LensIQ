@@ -111,23 +111,68 @@ Success looks like `lensiq-app-1` showing `Up (healthy)` in the `docker compose 
 
 ## 8. Registry and backups (once)
 
-**[MACSERVER]** SQLite isn't covered by the nightly Postgres dumps. In `~/backup.sh`, add this line before the `find` cleanup line:
+**[MACSERVER]** SQLite isn't covered by Postgres dumps. On Voyager, `~/backup.sh` (created 2026-11-18, run by cron at 03:15, logging to `~/backup.log`) backs up file folders with one `backup_files` line per app, and LensIQ's line is already there:
+
+```bash
+backup_files lensiq data
+```
+
+On a server whose `~/backup.sh` uses the MacServer guide's plain form instead, add this before the `find` cleanup line, and make the cleanup match `\( -name '*.dump' -o -name '*.tar.gz' \)`:
 
 ```bash
 tar -czf "$BACKUP_DIR/lensiq-files-$(date +%F).tar.gz" -C /home/bobbyjoecool/apps/lensiq data
 ```
 
-Make sure the cleanup line matches `\( -name '*.dump' -o -name '*.tar.gz' \)` so old archives are also removed after 14 days. Test it:
+Test it:
 
 ```bash
 ~/backup.sh && ls -lh ~/backups | grep lensiq
 ```
 
-Add LensIQ to the server registry in the MacServer setup guide:
+The server registry row (MacServer setup guide, section 5):
 
 | App folder | Public hostname | Container:port for route | DB local port | Notes |
 | --- | --- | --- | --- | --- |
-| `lensiq` | `lensiq.bobbyjoecool.dev` | `lensiq-app-1:3000` | none | SQLite in `data/`, backed up via tar |
+| `lensiq` | `lensiq.bobbyjoecool.dev` | `lensiq-app-1:3000` | none | SQLite in `data/`, backed up via `backup_files lensiq data` in `~/backup.sh` |
+
+## 9. Restore, or move to a new server
+
+Everything LensIQ keeps is in `~/apps/lensiq/data/lensiq.db`: connected databases, the row cache, views and dashboards. Rows themselves live in Notion, so even an empty `data/` recovers by re-adding the databases; the backup saves the views and dashboards.
+
+**Check a backup restores [MACSERVER]** (safe; doesn't touch the running app):
+
+```bash
+mkdir -p ~/tmp/lensiq-restore
+tar -xzf "$(ls -t ~/backups/lensiq-files-*.tar.gz | head -1)" -C ~/tmp/lensiq-restore
+ls -lh ~/tmp/lensiq-restore/data            # lensiq.db should be there
+rm -rf ~/tmp/lensiq-restore
+```
+
+**Restore for real [MACSERVER]:**
+
+```bash
+cd ~/apps/lensiq && docker compose stop app
+mv data "data.broken-$(date +%F)"
+tar -xzf "$(ls -t ~/backups/lensiq-files-*.tar.gz | head -1)" -C ~/apps/lensiq
+sudo chown -R 1000:1000 data
+docker compose up -d app
+```
+
+**Move to a new server:** do steps 2–3 there (clone, `.env`, compose file), copy `~/apps/lensiq/data/` over (for example `rsync -a oldserver:apps/lensiq/data/ ~/apps/lensiq/data/`), `sudo chown -R 1000:1000 ~/apps/lensiq/data`, then step 6. Point the tunnel route at the new server's container. The app migrates its database on start.
+
+**Views and dashboards as JSON:** in the app, **Settings → Export JSON** downloads every view and dashboard; **Import JSON** adds them back on any LensIQ that has the same Notion databases connected. Handy before experiments, or to copy a setup to a fresh instance.
+
+## 10. Install on the iPhone home screen
+
+**[PHONE]** Open `https://lensiq.bobbyjoecool.dev` in Safari, sign in, then **Share → Add to Home Screen**. It opens full-screen like an app. The service worker never caches `/api`, so data always comes from the server.
+
+If the home-screen icon shows a page snapshot instead of the LensIQ icon, Safari couldn't fetch `/apple-touch-icon.png` through Cloudflare Access. Optional fix: in the Access application add a **Bypass** policy for the paths `/apple-touch-icon.png`, `/icon-192.png`, `/icon-512.png`, `/icon-maskable-512.png` and `/manifest.webmanifest` (they hold no data).
+
+## 11. Public demo (GitHub Pages)
+
+The demo is a static build with made-up data that runs in the visitor's browser; it never talks to this server or to Notion.
+
+**[BROWSER] once:** in the GitHub repo, **Settings → Pages → Build and deployment → Source: GitHub Actions**. After that, every push to `main` runs `.github/workflows/demo.yml` (web tests, `npm run build:demo`, deploy). The demo is at `https://bobbyjoecool.github.io/LensIQ/`. A run can also be started by hand from **Actions → Demo → Run workflow**.
 
 ## Troubleshooting
 

@@ -4,17 +4,20 @@ import { api } from './api';
 import { AddDatabaseForm } from './components/AddDatabaseForm';
 import { DashboardPage } from './components/DashboardPage';
 import { DatabaseView, markSynced } from './components/DatabaseView';
+import { SettingsPage } from './components/SettingsPage';
 
 type Route =
   | { page: 'home' }
   | { page: 'add' }
   | { page: 'db'; id: string; viewId?: string }
-  | { page: 'dash'; id: string };
+  | { page: 'dash'; id: string }
+  | { page: 'settings' };
 
 /** Hash routes: `#/add`, `#/db/<id>`, `#/db/<id>/v/<viewId>` and `#/dash/<id>`. */
 export function parseHash(hash: string): Route {
   const parts = hash.replace(/^#\/?/, '').split('/');
   if (parts[0] === 'add') return { page: 'add' };
+  if (parts[0] === 'settings') return { page: 'settings' };
   if (parts[0] === 'dash' && parts[1]) return { page: 'dash', id: decodeURIComponent(parts[1]) };
   if (parts[0] === 'db' && parts[1]) {
     const route: Route = { page: 'db', id: decodeURIComponent(parts[1]) };
@@ -74,7 +77,7 @@ export function App() {
         className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:w-60 md:flex-col md:overflow-visible md:border-r md:border-b-0 md:py-4 dark:border-slate-800 dark:bg-slate-900"
       >
         <a href="#/" className="mr-2 flex min-h-11 shrink-0 items-center gap-2 px-2 text-lg font-bold md:mb-3">
-          <img src="/favicon.svg" alt="" className="h-6 w-6" />
+          <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-6 w-6" />
           LensIQ
         </a>
         {list.map((db) => (
@@ -124,9 +127,20 @@ export function App() {
             + New dashboard
           </button>
         )}
+        <a href="#/settings" className={`${navLink(effective.page === 'settings')} md:mt-auto`}>
+          Settings
+        </a>
       </nav>
 
       <main className="flex min-w-0 flex-1 flex-col overflow-auto p-4 md:p-6">
+        {import.meta.env.VITE_DEMO === '1' && (
+          <p className="mb-4 rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100" data-testid="demo-banner">
+            <strong>Demo with made-up sample data.</strong> Edit, drag and build dashboards freely: nothing reaches Notion, and everything resets when you reload.{' '}
+            <a className="underline" href="https://github.com/BobbyJoeCool/LensIQ">
+              Source on GitHub
+            </a>
+          </p>
+        )}
         {databases.isError && (
           <p role="alert" className="mb-4 rounded-lg bg-red-50 px-4 py-3 text-red-800 dark:bg-red-950 dark:text-red-200">
             {databases.error.message}
@@ -143,6 +157,7 @@ export function App() {
         )}
         {effective.page === 'db' && <DatabaseView key={effective.id} id={effective.id} viewId={effective.viewId} />}
         {effective.page === 'dash' && <DashboardPage key={effective.id} id={effective.id} />}
+        {effective.page === 'settings' && <SettingsPage />}
       </main>
     </div>
   );

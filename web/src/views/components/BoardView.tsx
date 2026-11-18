@@ -14,6 +14,7 @@ import {
 import type { BoardConfig, CellValue, Column, Row, SelectOption } from '@lensiq/shared';
 import { Cell } from '../../components/cells/Cell';
 import type { DatabaseEditing } from '../../editing/useDatabaseEditing';
+import { isEmptyCell } from '../query';
 import { OPTION_COLORS } from '../../format';
 
 const NONE = '__none';
@@ -160,6 +161,8 @@ function Card({ row, title, fields, onOpen }: { row: Row; title: Column | undefi
 function CardBody({ row, title, fields, onOpen, lifted }: { row: Row; title: Column | undefined; fields: Column[]; onOpen?: () => void; lifted?: boolean }) {
   const t = title ? row.cells[title.id] : undefined;
   const text = t?.kind === 'text' && t.value ? t.value : 'Untitled';
+  // Like Notion, empty fields are left off the card.
+  fields = fields.filter((c) => !isEmptyCell(row.cells[c.id]));
   return (
     <article
       aria-label={text}

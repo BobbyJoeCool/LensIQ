@@ -167,3 +167,4 @@ e2e/.auth/
 
 # Local SQLite cache (dev)
 data/
+dist-demo/

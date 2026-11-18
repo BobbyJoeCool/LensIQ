@@ -42,8 +42,8 @@ describe('chartData', () => {
     expect(series({ aggregation: 'sum', y: 'sal' }).data.map((p) => p.value)).toEqual([120000, 145000, 160000]);
     expect(series({ aggregation: 'avg', y: 'sal' }).data[0]!.value).toBe(120000); // Contoso has no salary
     expect(series({ x: 'rem', aggregation: 'max', y: 'sal' }).data.map((p) => [p.label, p.value])).toEqual([
-      ['Checked', 145000],
-      ['Unchecked', 160000],
+      ['Remote', 145000],
+      ['Not remote', 160000],
     ]);
   });
 

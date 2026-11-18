@@ -340,6 +340,23 @@ export interface CreateDashboardRequest {
   name: string;
 }
 
+/** `GET /api/export`: every view and dashboard, for backup or moving servers (Q24). */
+export interface ExportFile {
+  app: 'lensiq';
+  version: 1;
+  exportedAt: string;
+  views: View[];
+  dashboards: Dashboard[];
+}
+
+/** `POST /api/import` result. */
+export interface ImportResult {
+  viewsCreated: number;
+  dashboardsCreated: number;
+  /** Views skipped because their database isn't connected here. */
+  viewsSkipped: number;
+}
+
 export interface UpdateDashboardRequest {
   name?: string;
   tiles?: DashboardTile[];
