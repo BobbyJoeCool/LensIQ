@@ -1,0 +1,29 @@
+{
+  "name": "lensiq",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Self-hosted dashboards for Notion: tables, boards and charts over your Notion databases.",
+  "type": "module",
+  "workspaces": [
+    "shared",
+    "api",
+    "web"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev -w api\" \"npm run dev -w web\"",
+    "build": "npm run build -w web && npm run build -w api",
+    "typecheck": "npm run typecheck -w shared && npm run typecheck -w api && npm run typecheck -w web",
+    "test": "npm run test -w api && npm run test -w web",
+    "start": "node api/dist/index.js",
+    "test:e2e": "npm run test:smoke && playwright test",
+    "test:smoke": "npm run build && node scripts/smoke-built.mjs"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.65.1",
+    "concurrently": "^10.0.7",
+    "typescript": "^7.0.2"
+  }
+}

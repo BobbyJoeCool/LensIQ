@@ -1,0 +1,18 @@
+# Copy to ~/apps/lensiq/compose.yaml on MacServer (see deploy/README.md).
+services:
+  app:
+    image: lensiq:latest
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+    volumes:
+      - ./data:/app/data
+    networks: [web]
+    # Debug only: uncomment to reach the app from MacServer itself. Never publish without 127.0.0.1.
+    # ports:
+    #   - "127.0.0.1:3000:3000"
+
+networks:
+  web:
+    external: true

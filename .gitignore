@@ -155,3 +155,15 @@ vite.config.ts.timestamp-*
 .nx/cache
 .nx/workspace-data
 .nx/migrate-runs
+
+# Local-only notes and Claude instructions
+DevNotes/
+CLAUDE.md
+
+# Playwright
+playwright-report/
+test-results/
+e2e/.auth/
+
+# Local SQLite cache (dev)
+data/
