@@ -1,0 +1,14 @@
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+data
+DevNotes
+CLAUDE.md
+e2e
+playwright-report
+test-results
+api/test
+**/*.test.ts
+**/*.test.tsx
