@@ -1,9 +1,16 @@
 {
   "name": "@lensiq/shared",
   "private": true,
-  "version": "0.1.0",
+  "version": "1.0.0",
   "type": "module",
   "types": "./src/index.ts",
-  "exports": { ".": { "types": "./src/index.ts", "default": "./src/index.ts" } },
-  "scripts": { "typecheck": "tsc --noEmit -p ." }
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  }
 }

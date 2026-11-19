@@ -1,5 +1,5 @@
 # LensIQ: one image that serves the React app and the API on port 3000.
-# MacServer is amd64: build there with a plain `docker build`, or on Janeway with
+# Voyager is amd64: build there with a plain `docker build`, or on Janeway with
 #   docker buildx build --platform linux/amd64 -t lensiq:latest --load .
 
 FROM node:22-alpine AS build
