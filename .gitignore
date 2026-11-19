@@ -168,3 +168,6 @@ e2e/.auth/
 # Local SQLite cache (dev)
 data/
 dist-demo/
+
+# Static demo build (npm run build:demo -w web)
+dist-demo/

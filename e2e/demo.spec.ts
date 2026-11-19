@@ -32,3 +32,13 @@ test('the demo explains it cannot connect real Notion databases', async ({ page 
   await page.getByRole('button', { name: 'Add database' }).click();
   await expect(page.getByRole('alert')).toContainText('demo');
 });
+
+test('with many views, "+ Add view" stays fully visible and its menu opens (#46)', async ({ page }) => {
+  await page.goto('./#/db/demo-jobs/v/v-jobs-board');
+  await expect(page.getByRole('heading', { name: 'Job Search Tracker' })).toBeVisible();
+  const add = page.getByRole('button', { name: '+ Add view' });
+  await expect(add).toBeInViewport({ ratio: 1 });
+  await add.click();
+  await page.getByRole('button', { name: /Calendar$/ }).click();
+  await expect(page.getByRole('navigation', { name: 'Views' }).getByRole('link', { name: /Calendar/ })).toHaveAttribute('aria-current', 'page');
+});

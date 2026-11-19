@@ -83,99 +83,102 @@ function ViewTabs({ dbId, views, active }: { dbId: string; views: View[]; active
   };
 
   return (
-    <nav aria-label="Views" className="flex min-h-12 items-end gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-300 dark:border-slate-700">
-      {views.map((v, i) => {
-        const isActive = v.id === active?.id;
-        return (
-          <div key={v.id} className={`flex shrink-0 items-center border-b-2 ${isActive ? 'border-slate-900 dark:border-slate-100' : 'border-transparent'}`}>
-            {renaming === v.id ? (
-              <input
-                aria-label="View name"
-                autoFocus
-                className={`${fieldClass} w-40`}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                onBlur={() => commitRename(v)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') commitRename(v);
-                  if (e.key === 'Escape') setRenaming(null);
-                }}
-              />
-            ) : (
-              <a
-                href={viewHref(dbId, v.id)}
-                aria-current={isActive ? 'page' : undefined}
-                onDoubleClick={() => {
-                  setRenaming(v.id);
-                  setName(v.name);
-                }}
-                className={`flex min-h-11 items-center gap-1.5 px-2 text-sm whitespace-nowrap ${isActive ? 'font-semibold' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
-              >
-                <span aria-hidden className="text-xs text-slate-400">
-                  {TYPE_ICON[v.type]}
-                </span>
-                {v.name}
-              </a>
-            )}
-            {isActive && renaming !== v.id && (
-              <Popover label="⋯" buttonClassName="min-h-9 rounded px-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800" align="left">
-                {(close) => (
-                  <div className="flex flex-col items-stretch" aria-label="View actions">
-                    <button
-                      type="button"
-                      className={`${smallButton} text-left`}
-                      onClick={() => {
-                        close();
-                        setRenaming(v.id);
-                        setName(v.name);
-                      }}
-                    >
-                      Rename
-                    </button>
-                    <button
-                      type="button"
-                      className={`${smallButton} text-left`}
-                      onClick={() => {
-                        close();
-                        actions.create.mutate(
-                          { name: `${v.name} copy`, type: v.type, config: v.config },
-                          { onSuccess: (nv) => (window.location.hash = viewHref(dbId, nv.id)) },
-                        );
-                      }}
-                    >
-                      Duplicate
-                    </button>
-                    {i > 0 && (
-                      <button type="button" className={`${smallButton} text-left`} onClick={() => (close(), actions.move.mutate({ id: v.id, position: i - 1 }))}>
-                        Move left
-                      </button>
-                    )}
-                    {i < views.length - 1 && (
-                      <button type="button" className={`${smallButton} text-left`} onClick={() => (close(), actions.move.mutate({ id: v.id, position: i + 1 }))}>
-                        Move right
-                      </button>
-                    )}
-                    {views.length > 1 && (
+    <nav aria-label="Views" className="flex min-h-12 items-end border-b border-slate-300 dark:border-slate-700">
+      {/* Only the tabs scroll sideways; "+ Add view" stays visible at the right (#46). */}
+      <div className="flex min-w-0 flex-1 items-end gap-1 overflow-x-auto overflow-y-hidden">
+        {views.map((v, i) => {
+          const isActive = v.id === active?.id;
+          return (
+            <div key={v.id} className={`flex shrink-0 items-center border-b-2 ${isActive ? 'border-slate-900 dark:border-slate-100' : 'border-transparent'}`}>
+              {renaming === v.id ? (
+                <input
+                  aria-label="View name"
+                  autoFocus
+                  className={`${fieldClass} w-40`}
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  onBlur={() => commitRename(v)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename(v);
+                    if (e.key === 'Escape') setRenaming(null);
+                  }}
+                />
+              ) : (
+                <a
+                  href={viewHref(dbId, v.id)}
+                  aria-current={isActive ? 'page' : undefined}
+                  onDoubleClick={() => {
+                    setRenaming(v.id);
+                    setName(v.name);
+                  }}
+                  className={`flex min-h-11 items-center gap-1.5 px-2 text-sm whitespace-nowrap ${isActive ? 'font-semibold' : 'text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-100'}`}
+                >
+                  <span aria-hidden className="text-xs text-slate-400">
+                    {TYPE_ICON[v.type]}
+                  </span>
+                  {v.name}
+                </a>
+              )}
+              {isActive && renaming !== v.id && (
+                <Popover label="⋯" buttonClassName="min-h-9 rounded px-1.5 text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800" align="left">
+                  {(close) => (
+                    <div className="flex flex-col items-stretch" aria-label="View actions">
                       <button
                         type="button"
-                        className={`${smallButton} text-left text-red-700 dark:text-red-400`}
+                        className={`${smallButton} text-left`}
                         onClick={() => {
                           close();
-                          if (window.confirm(`Delete the view “${v.name}”? Your Notion data isn’t affected.`)) {
-                            actions.remove.mutate(v.id, { onSuccess: () => (window.location.hash = `#/db/${encodeURIComponent(dbId)}`) });
-                          }
+                          setRenaming(v.id);
+                          setName(v.name);
                         }}
                       >
-                        Delete view
+                        Rename
                       </button>
-                    )}
-                  </div>
-                )}
-              </Popover>
-            )}
-          </div>
-        );
-      })}
+                      <button
+                        type="button"
+                        className={`${smallButton} text-left`}
+                        onClick={() => {
+                          close();
+                          actions.create.mutate(
+                            { name: `${v.name} copy`, type: v.type, config: v.config },
+                            { onSuccess: (nv) => (window.location.hash = viewHref(dbId, nv.id)) },
+                          );
+                        }}
+                      >
+                        Duplicate
+                      </button>
+                      {i > 0 && (
+                        <button type="button" className={`${smallButton} text-left`} onClick={() => (close(), actions.move.mutate({ id: v.id, position: i - 1 }))}>
+                          Move left
+                        </button>
+                      )}
+                      {i < views.length - 1 && (
+                        <button type="button" className={`${smallButton} text-left`} onClick={() => (close(), actions.move.mutate({ id: v.id, position: i + 1 }))}>
+                          Move right
+                        </button>
+                      )}
+                      {views.length > 1 && (
+                        <button
+                          type="button"
+                          className={`${smallButton} text-left text-red-700 dark:text-red-400`}
+                          onClick={() => {
+                            close();
+                            if (window.confirm(`Delete the view “${v.name}”? Your Notion data isn’t affected.`)) {
+                              actions.remove.mutate(v.id, { onSuccess: () => (window.location.hash = `#/db/${encodeURIComponent(dbId)}`) });
+                            }
+                          }}
+                        >
+                          Delete view
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </Popover>
+              )}
+            </div>
+          );
+        })}
+      </div>
       <div className="flex min-h-11 shrink-0 items-center pl-1">
         <Popover
           label="+ Add view"

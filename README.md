@@ -4,24 +4,24 @@
 
 **[Try the live demo →](https://bobbyjoecool.github.io/LensIQ/)** (made-up sample data, runs entirely in your browser, resets on reload)
 
-![Job Search dashboard: a pipeline board, applications per week, average salary, status donut and next steps](docs/media/dashboard.png)
+![Job Search dashboard: a pipeline board, applications per week, average salary, status donut and next steps](docs/media/dashboard.webp)
 
 Notion's free plan allows one chart. LensIQ keeps Notion as the data store and adds the views a paid plan would: it reads each database's schema and builds every view from it, so connecting a new database means pasting its link, not writing code.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/media/board-drag.gif" alt="Dragging a card to another status on a board updates Notion"><br><sub>Drag a card to change its status. The edit goes to Notion.</sub></td>
-    <td width="50%"><img src="docs/media/chart.png" alt="Bar chart of applications per week, stacked by remote vs not remote"><br><sub>Charts: bar, line, area, donut and number tiles.</sub></td>
+    <td width="50%"><img src="docs/media/board-drag.webp" alt="Dragging a card to another status on a board updates Notion"><br><sub>Drag a card to change its status. The edit goes to Notion.</sub></td>
+    <td width="50%"><img src="docs/media/chart.webp" alt="Bar chart of applications per week, stacked by remote vs not remote"><br><sub>Charts: bar, line, area, donut and number tiles.</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/media/table.png" alt="Table view with typed cells, sorting and inline editing"><br><sub>Typed table with filters, sorts and inline editing.</sub></td>
-    <td><img src="docs/media/calendar.png" alt="Calendar view of bills by due date"><br><sub>Calendar by any date column; drag rows between days.</sub></td>
+    <td><img src="docs/media/table.webp" alt="Table view with typed cells, sorting and inline editing"><br><sub>Typed table with filters, sorts and inline editing.</sub></td>
+    <td><img src="docs/media/calendar.webp" alt="Calendar view of bills by due date"><br><sub>Calendar by any date column; drag rows between days.</sub></td>
   </tr>
 </table>
 
 <p>
-  <img src="docs/media/phone-dashboard.png" alt="Dashboard on a phone, stacked to one column" width="260">
-  <img src="docs/media/phone-row.png" alt="Row panel on a phone with every property editable" width="260">
+  <img src="docs/media/phone-dashboard.webp" alt="Dashboard on a phone, stacked to one column" width="260">
+  <img src="docs/media/phone-row.webp" alt="Row panel on a phone with every property editable" width="260">
 </p>
 
 ## Features
@@ -82,7 +82,7 @@ shared/     TypeScript types shared by api and web (type-only)
 e2e/        Playwright end-to-end tests
 deploy/     compose.yaml, deploy.sh and the deployment runbook
 scripts/    Smoke test for the compiled server, app icon renderer
-docs/media/ README screenshots and GIFs
+docs/media/ README screenshots and animations (WebP)
 .github/    Workflow that publishes the demo to GitHub Pages
 ```
 
