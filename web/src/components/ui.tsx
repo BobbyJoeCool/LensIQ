@@ -1,5 +1,6 @@
 /** Small shared controls: a popover menu, a labeled select and a toggle. */
-import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 
 export function Popover({
   label,
@@ -16,12 +17,37 @@ export function Popover({
   buttonClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
   const id = useId();
+
+  // The panel is portalled to <body> with fixed positioning, so a parent that
+  // scrolls or clips (like the sideways-scrolling view tab bar, #43) can't hide it.
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const button = ref.current?.getBoundingClientRect();
+      if (!button) return;
+      const vw = document.documentElement.clientWidth;
+      const width = Math.min(352, vw - 32);
+      const wanted = align === 'right' ? button.right - width : button.left;
+      setPos({ top: button.bottom + 4, left: Math.max(16, Math.min(wanted, vw - width - 16)), width });
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('scroll', place, true);
+    return () => {
+      window.removeEventListener('resize', place);
+      window.removeEventListener('scroll', place, true);
+    };
+  }, [open, align]);
+
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !panelRef.current?.contains(t)) setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
     document.addEventListener('mousedown', onDown);
@@ -32,7 +58,7 @@ export function Popover({
     };
   }, [open]);
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className="relative shrink-0">
       <button
         type="button"
         aria-expanded={open}
@@ -47,16 +73,18 @@ export function Popover({
       >
         {label}
       </button>
-      {open && (
-        <div
-          id={id}
-          className={`absolute z-40 mt-1 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900 ${
-            align === 'right' ? 'right-0' : 'left-0'
-          }`}
-        >
-          {children(() => setOpen(false))}
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div
+            ref={panelRef}
+            id={id}
+            style={pos ? { top: pos.top, left: pos.left, width: pos.width } : { visibility: 'hidden' }}
+            className="fixed z-40 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+          >
+            {children(() => setOpen(false))}
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

@@ -83,7 +83,7 @@ function ViewTabs({ dbId, views, active }: { dbId: string; views: View[]; active
   };
 
   return (
-    <nav aria-label="Views" className="flex items-center gap-1 overflow-x-auto border-b border-slate-200 dark:border-slate-800">
+    <nav aria-label="Views" className="flex min-h-12 items-end gap-1 overflow-x-auto overflow-y-hidden border-b border-slate-300 dark:border-slate-700">
       {views.map((v, i) => {
         const isActive = v.id === active?.id;
         return (
@@ -176,20 +176,25 @@ function ViewTabs({ dbId, views, active }: { dbId: string; views: View[]; active
           </div>
         );
       })}
-      <Popover label="+ Add view" buttonClassName="min-h-11 shrink-0 rounded px-2 text-sm text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-800">
-        {(close) => (
-          <div className="flex flex-col" aria-label="Add a view">
-            {(['table', 'board', 'chart'] as ViewType[]).map((t) => (
-              <button key={t} type="button" className="min-h-10 rounded px-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => (close(), add(t))}>
-                <span aria-hidden className="mr-2 text-slate-400">
-                  {TYPE_ICON[t]}
-                </span>
-                {TYPE_LABEL[t]}
-              </button>
-            ))}
-          </div>
-        )}
-      </Popover>
+      <div className="flex min-h-11 shrink-0 items-center pl-1">
+        <Popover
+          label="+ Add view"
+          buttonClassName="min-h-9 whitespace-nowrap rounded-md border border-dashed border-slate-400 px-3 text-sm font-medium text-slate-700 hover:border-slate-500 hover:bg-white hover:text-slate-900 dark:border-slate-600 dark:text-slate-200 dark:hover:border-slate-400 dark:hover:bg-slate-800"
+        >
+          {(close) => (
+            <div className="flex flex-col" aria-label="Add a view">
+              {(['table', 'board', 'chart'] as ViewType[]).map((t) => (
+                <button key={t} type="button" className="min-h-10 rounded px-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => (close(), add(t))}>
+                  <span aria-hidden className="mr-2 text-slate-400">
+                    {TYPE_ICON[t]}
+                  </span>
+                  {TYPE_LABEL[t]}
+                </button>
+              ))}
+            </div>
+          )}
+        </Popover>
+      </div>
     </nav>
   );
 }

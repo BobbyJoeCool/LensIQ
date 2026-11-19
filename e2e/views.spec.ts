@@ -178,3 +178,23 @@ test('build a dashboard from existing and new views; it stacks to one column on 
   await page.getByRole('link', { name: 'Job Search', exact: true }).click();
   await expect(tiles).toHaveCount(1);
 });
+
+test('the Add view and view action menus open on top of the page, not clipped by the tab bar (#43)', async ({ page }) => {
+  await addJobSearch(page);
+  const nav = page.getByRole('navigation', { name: 'Views' });
+  expect((await nav.boundingBox())!.height).toBeGreaterThanOrEqual(44);
+
+  const onTop = (name: RegExp) =>
+    page.getByRole('button', { name }).evaluate((el) => {
+      const r = el.getBoundingClientRect();
+      const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+      return !!hit && el.contains(hit);
+    });
+
+  await page.getByRole('button', { name: '+ Add view' }).click();
+  expect(await onTop(/Board$/)).toBe(true);
+  await page.keyboard.press('Escape');
+
+  await nav.getByRole('button', { name: '⋯' }).click();
+  expect(await onTop(/^Rename$/)).toBe(true);
+});
