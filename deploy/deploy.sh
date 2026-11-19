@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Pull, build and restart LensIQ on MacServer. Installed at ~/apps/lensiq/deploy.sh.
+# Pull, build and restart LensIQ on Voyager. Installed at ~/apps/lensiq/deploy.sh.
 set -euo pipefail
 cd ~/src/lensiq
 git pull --ff-only

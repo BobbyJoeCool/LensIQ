@@ -17,6 +17,10 @@ Notion's free plan allows one chart. LensIQ keeps Notion as the data store and a
     <td><img src="docs/media/table.webp" alt="Table view with typed cells, sorting and inline editing"><br><sub>Typed table with filters, sorts and inline editing.</sub></td>
     <td><img src="docs/media/calendar.webp" alt="Calendar view of bills by due date"><br><sub>Calendar by any date column; drag rows between days.</sub></td>
   </tr>
+  <tr>
+    <td><img src="docs/media/chart-settings.webp" alt="Chart settings menu open over a bar chart: chart type, x-axis, date grouping, y-axis, split by, stacked"><br><sub>Build and edit charts in the app, no code.</sub></td>
+    <td><img src="docs/media/board.webp" alt="Board view of job applications grouped by status"><br><sub>Boards grouped by any select or status.</sub></td>
+  </tr>
 </table>
 
 <p>
@@ -34,7 +38,7 @@ Notion's free plan allows one chart. LensIQ keeps Notion as the data store and a
 - **Installable.** Add it to the iPhone home screen as an app.
 - **Backups.** Export and import every view and dashboard as JSON.
 
-> **Status: Phase 5 of 5 (polish).** Everything above is built and tested; see the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
+> **Status: v1.0.0, released 2026-11-18.** Everything above is built, tested and running. See the [changelog](CHANGELOG.md) and the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
 
 ## How it works
 

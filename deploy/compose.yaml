@@ -1,4 +1,4 @@
-# Copy to ~/apps/lensiq/compose.yaml on MacServer (see deploy/README.md).
+# Copy to ~/apps/lensiq/compose.yaml on Voyager (see deploy/README.md).
 services:
   app:
     image: lensiq:latest
@@ -9,7 +9,7 @@ services:
     volumes:
       - ./data:/app/data
     networks: [web]
-    # Debug only: uncomment to reach the app from MacServer itself. Never publish without 127.0.0.1.
+    # Debug only: uncomment to reach the app from Voyager itself. Never publish without 127.0.0.1.
     # ports:
     #   - "127.0.0.1:3000:3000"
 
