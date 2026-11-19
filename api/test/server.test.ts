@@ -26,6 +26,19 @@ function fakeNotion(rows: StoredRow[]): NotionSource & { rowCalls: number } {
       this.rowCalls++;
       return rows;
     },
+    async fetchChangedRows() {
+      return [];
+    },
+    async fetchRow() {
+      throw new Error('not used');
+    },
+    async updateRow() {
+      throw new Error('not used');
+    },
+    async createRow() {
+      throw new Error('not used');
+    },
+    async trashRow() {},
   };
 }
 

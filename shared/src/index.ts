@@ -83,7 +83,8 @@ export interface FileValue {
  * these shapes, so the front end only has to render this small set.
  */
 export type CellValue =
-  | { kind: 'text'; value: string }
+  /** `rich` is true when the Notion text has formatting, links, mentions or equations (read-only in LensIQ). */
+  | { kind: 'text'; value: string; rich?: boolean }
   | { kind: 'number'; value: number | null }
   | { kind: 'boolean'; value: boolean }
   | { kind: 'date'; value: DateValue | null }
@@ -132,6 +133,39 @@ export interface AddDatabaseRequest {
   /** A Notion database URL, database ID, or data source ID. */
   idOrUrl: string;
 }
+
+/** Body of `PATCH /api/databases/:id/rows/:pageId`: set one cell. */
+export interface UpdateCellRequest {
+  columnId: string;
+  /** The new value, in the same shape the app displays. */
+  value: CellValue;
+  /**
+   * The value Bob saw before editing. If Notion's current value is different,
+   * the API answers 409 with a `ConflictResponse` instead of overwriting.
+   */
+  expected: CellValue;
+  /** Skip the conflict check ("keep mine" in the conflict dialog). */
+  force?: boolean;
+}
+
+/** 409 body when a cell changed in Notion since Bob loaded it. */
+export interface ConflictResponse {
+  error: 'conflict';
+  message: string;
+  columnId: string;
+  /** The value now in Notion. */
+  current: CellValue;
+  /** The whole row as it is now in Notion. */
+  row: Row;
+}
+
+/** Body of `POST /api/databases/:id/rows`. Cells left out stay empty. */
+export interface CreateRowRequest {
+  cells: Record<string, CellValue>;
+}
+
+/** Sync modes for `GET /api/databases/:id/rows?sync=`. */
+export type SyncMode = 'none' | 'changes' | 'full';
 
 export interface ApiError {
   error: string;

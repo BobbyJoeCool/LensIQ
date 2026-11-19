@@ -38,5 +38,19 @@ app.post('/__e2e/reset', async () => {
   return { ok: true };
 });
 
+/** Test hooks: change data "in Notion" without going through LensIQ. */
+app.post('/__e2e/notion/add-row', async () => {
+  notion.addLaterRow();
+  return { ok: true };
+});
+app.post<{ Body: { pageId: string; prop: string; value: unknown } }>('/__e2e/notion/edit', async (req) => {
+  notion.externalEdit(req.body.pageId, req.body.prop, req.body.value);
+  return { ok: true };
+});
+app.post<{ Body: { pageId: string } }>('/__e2e/notion/delete', async (req) => {
+  notion.externalDelete(req.body.pageId);
+  return { ok: true };
+});
+
 await app.listen({ host: '127.0.0.1', port });
 console.log(`E2E server on http://127.0.0.1:${port}`);

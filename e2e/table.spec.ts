@@ -34,7 +34,7 @@ test('explains how to share a database the connection cannot see', async ({ page
   await expect(page.getByRole('alert')).toContainText('Connections');
 });
 
-test('adding a database renders a typed read-only table', async ({ page }) => {
+test('adding a database renders a typed table', async ({ page }) => {
   await addJobSearch(page);
 
   const table = page.getByRole('table', { name: 'Database rows' });
@@ -80,8 +80,9 @@ test('adding the same database twice is refused', async ({ page }) => {
   await expect(page.getByRole('alert')).toContainText('already connected');
 });
 
-test('Refresh reloads rows from Notion', async ({ page }) => {
+test('Refresh reloads rows from Notion', async ({ page, request }) => {
   await addJobSearch(page);
+  await request.post('/__e2e/notion/add-row'); // someone adds a row in Notion
   await page.getByRole('button', { name: 'Refresh' }).click();
   await expect(page.getByTestId('sync-status')).toContainText('3 rows');
   await expect(page.getByRole('row').filter({ hasText: 'Fabrikam Health' })).toBeVisible();

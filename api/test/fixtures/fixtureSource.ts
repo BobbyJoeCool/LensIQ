@@ -84,15 +84,37 @@ const LATER_PAGE = page('p-3', '2026-11-15T15:00:00.000Z', {
   applied: '2026-11-15', remote: true, url: 'https://jobs.example.com/fabrikam', tags: [], days: 2, contacts: 1,
 });
 
+type RawPage = ReturnType<typeof page> & { in_trash?: boolean };
+
+const clone = <T>(v: T): T => structuredClone(v);
+
+function toStored(p: RawPage): StoredRow {
+  return { id: p.id, url: p.url, createdTime: p.created_time, lastEditedTime: p.last_edited_time, cells: toCells(p.properties) };
+}
+
 /**
- * The first full load returns two rows. Every later load also returns a third
- * row, which simulates an edit made in Notion and lets E2E test Refresh.
+ * An in-memory Notion for E2E. It starts with two Job Search rows, applies
+ * writes the way Notion does (including creating new select options), and
+ * exposes test hooks that change data "in Notion" behind the app's back:
+ * `addLaterRow`, `externalEdit` and `externalDelete`.
  */
 export class FixtureNotionSource implements NotionSource {
-  private loads = 0;
+  private schemaProps = clone(properties);
+  private pages: RawPage[] = clone(BASE_PAGES);
+  private clock = Date.parse('2026-11-18T12:00:00.000Z');
+  private nextId = 100;
 
   reset(): void {
-    this.loads = 0;
+    this.schemaProps = clone(properties);
+    this.pages = clone(BASE_PAGES);
+    this.clock = Date.parse('2026-11-18T12:00:00.000Z');
+    this.nextId = 100;
+  }
+
+  /** Advances the fake clock so each write gets a later last-edited time. */
+  private tick(): string {
+    this.clock = Math.max(this.clock + 60_000, Date.now());
+    return new Date(this.clock).toISOString();
   }
 
   async resolve(idOrUrl: string): Promise<ResolvedSource> {
@@ -107,17 +129,106 @@ export class FixtureNotionSource implements NotionSource {
   }
 
   async fetchSchema(): Promise<SourceSnapshot> {
-    return { name: 'Job Search Tracker', schema: toSchema(properties) };
+    return { name: 'Job Search Tracker', schema: toSchema(this.schemaProps) };
   }
 
   async fetchRows(): Promise<StoredRow[]> {
-    const pages = this.loads++ === 0 ? BASE_PAGES : [...BASE_PAGES, LATER_PAGE];
-    return pages.map((p) => ({
-      id: p.id,
-      url: p.url,
-      createdTime: p.created_time,
-      lastEditedTime: p.last_edited_time,
-      cells: toCells(p.properties),
-    }));
+    return this.pages.filter((p) => !p.in_trash).map(toStored);
+  }
+
+  async fetchChangedRows(_ds: string, sinceIso: string): Promise<StoredRow[]> {
+    return this.pages.filter((p) => !p.in_trash && p.last_edited_time >= sinceIso).map(toStored);
+  }
+
+  private find(pageId: string): RawPage {
+    const p = this.pages.find((x) => x.id === pageId);
+    if (!p) throw new AppError(410, 'row_gone', 'That row no longer exists in Notion. Refresh to update the list.');
+    if (p.in_trash) throw new AppError(410, 'row_trashed', 'That row was deleted in Notion. Refresh to update the list.');
+    return p;
+  }
+
+  async fetchRow(pageId: string): Promise<StoredRow> {
+    return toStored(this.find(pageId));
+  }
+
+  /** Applies a Notion `properties` payload (keyed by property ID) to a page. */
+  private apply(p: RawPage, payload: Record<string, unknown>): void {
+    for (const [propId, value] of Object.entries(payload)) {
+      const schemaEntry = Object.entries(this.schemaProps).find(([, sp]) => sp.id === propId);
+      if (!schemaEntry) throw new AppError(400, 'notion_validation', `Notion rejected the change: unknown property ${propId}`);
+      const [name, sp] = schemaEntry;
+      const v = (value as Record<string, any>)[sp.type];
+      const resolveOption = (o: { id?: string; name?: string }) => {
+        const options: any[] = sp[sp.type].options;
+        let opt = options.find((x) => (o.id ? x.id === o.id : x.name === o.name));
+        if (!opt) {
+          if (sp.type === 'status' || !o.name) throw new AppError(400, 'notion_validation', 'Notion rejected the change: invalid option');
+          opt = { id: `opt-${this.nextId++}`, name: o.name, color: 'default' };
+          options.push(opt);
+        }
+        return { ...opt };
+      };
+      let raw: unknown = v;
+      if (sp.type === 'title' || sp.type === 'rich_text') {
+        raw = (v as any[]).map((t) => ({
+          type: 'text',
+          plain_text: t.text.content,
+          text: { content: t.text.content },
+          ...(t.annotations ? { annotations: t.annotations } : {}),
+        }));
+      } else if (sp.type === 'select' || sp.type === 'status') {
+        raw = v ? resolveOption(v) : null;
+      } else if (sp.type === 'multi_select') {
+        raw = (v as any[]).map(resolveOption);
+      } else if (sp.type === 'date') {
+        raw = v ? { start: v.start, end: v.end ?? null, time_zone: null } : null;
+      }
+      p.properties[name] = { id: propId, type: sp.type, [sp.type]: raw } as RawProperty;
+    }
+    p.last_edited_time = this.tick();
+  }
+
+  async updateRow(pageId: string, props: Record<string, unknown>): Promise<StoredRow> {
+    const p = this.find(pageId);
+    this.apply(p, props);
+    return toStored(p);
+  }
+
+  async createRow(_ds: string, props: Record<string, unknown>): Promise<StoredRow> {
+    const created = this.tick();
+    const p = page(`p-new-${this.nextId++}`, created, {
+      company: '', role: '', status: 'Applied', salary: null, applied: '', remote: false, url: null, tags: [], days: 0, contacts: 0,
+    }) as RawPage;
+    p.properties.Applied = { id: 'appl', type: 'date', date: null } as RawProperty;
+    p.properties['Days Since Applied'] = { id: 'days', type: 'formula', formula: { type: 'number', number: null } } as RawProperty;
+    this.apply(p, props);
+    p.created_time = created;
+    this.pages.push(p);
+    return toStored(p);
+  }
+
+  async trashRow(pageId: string): Promise<void> {
+    this.find(pageId).in_trash = true;
+  }
+
+  // ---- Test hooks: changes made "in Notion", outside LensIQ ----
+
+  /** Adds the Fabrikam row, as if someone added it in Notion. */
+  addLaterRow(): void {
+    if (this.pages.some((p) => p.id === LATER_PAGE.id)) return;
+    const p = clone(LATER_PAGE) as RawPage;
+    p.last_edited_time = this.tick();
+    this.pages.push(p);
+  }
+
+  /** Sets a property by name with a raw Notion value payload. */
+  externalEdit(pageId: string, propName: string, notionValue: unknown): void {
+    const sp = this.schemaProps[propName];
+    if (!sp) throw new Error(`No property ${propName}`);
+    this.apply(this.find(pageId), { [sp.id]: { [sp.type]: notionValue } });
+  }
+
+  externalDelete(pageId: string): void {
+    this.find(pageId).in_trash = true;
   }
 }

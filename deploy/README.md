@@ -62,20 +62,22 @@ If a DNS record named `lensiq` already exists, delete it on the DNS page first.
 
 ## 5. Put Cloudflare Access in front (once)
 
-**[BROWSER]** In Cloudflare Zero Trust, open **Access → Applications → Add an application → Self-hosted**:
+**[BROWSER]** One-time PIN is an identity provider that has to exist on the account first. In Cloudflare Zero Trust, open **Integrations → Identity providers**. If **One-time PIN** isn't listed under **Your identity providers**, choose **Add new identity provider → One-time PIN**.
 
-1. Application domain: `lensiq.bobbyjoecool.dev`.
-2. Add a policy: Action **Allow**, Include **Emails**, listing only the addresses that should get in.
-3. Login method: **One-time PIN**.
-4. Save. Then open the application's **Overview** (or **Basic information**) and copy the **Application Audience (AUD) Tag**.
-5. The team domain is shown under **Settings → Custom pages** (or in the browser address bar of the login page), e.g. `yourteam.cloudflareaccess.com`.
+Then open **Access controls → Applications → Create new application → Self-hosted and private**:
+
+1. **Add public hostname**: subdomain `lensiq`, domain `bobbyjoecool.dev`.
+2. **Access policies → Create new policy**: Action **Allow**, Include rule **Emails**, listing only the addresses that should get in. Attach it to the application. (Don't use Include **Login methods → One-time PIN**: Include rules are OR'd, so that admits anyone with an email address.)
+3. **Identity providers**: turn off **Accept all available identity providers** and select only **One-time PIN**.
+4. **Create**. Then choose **Edit** on the application, open **Additional settings**, and copy the **Application Audience (AUD) Tag**.
+5. The team domain is in the address bar of the login page (`https://<team>.cloudflareaccess.com/...`) or under **Settings → Team name and domain**, e.g. `yourteam.cloudflareaccess.com`.
 
 **[MACSERVER]** Put both values into `.env`, replacing the placeholders:
 
 ```bash
 cd ~/apps/lensiq
-sed -i 's/^CF_ACCESS_TEAM_DOMAIN=.*/CF_ACCESS_TEAM_DOMAIN=PASTE_TEAM_DOMAIN/' .env
-sed -i 's/^CF_ACCESS_AUD=.*/CF_ACCESS_AUD=PASTE_AUD_TAG/' .env
+sed -i 's|^CF_ACCESS_TEAM_DOMAIN=.*|CF_ACCESS_TEAM_DOMAIN=PASTE_TEAM_DOMAIN|' .env
+sed -i 's|^CF_ACCESS_AUD=.*|CF_ACCESS_AUD=PASTE_AUD_TAG|' .env
 ```
 
 Without both values the container refuses to start. This is deliberate: the API checks the Access token on every `/api` request, so a request that skips Cloudflare (for example from another container on the `web` network) is rejected.
@@ -136,6 +138,7 @@ Add LensIQ to the server registry in the MacServer setup guide:
 | "Notion couldn't find that database" | Share the database with the LensIQ connection (··· → Connections). |
 | `SQLITE_CANTOPEN` or permission errors | The container runs as uid 1000 (`node`). Make `data/` writable by it: `sudo chown -R 1000:1000 ~/apps/lensiq/data`. |
 | Cloudflare 502 / 1033 | The route must be exactly `lensiq-app-1:3000`, and the container must be on the `web` network. |
+| Adding a database says "Something went wrong on the server"; logs show `invalid authorization header` | `NOTION_TOKEN` in `.env` contains stray characters, often terminal bracketed-paste markers (`ESC[200~`) or a trailing `\r`. Rewrite it: run `printf '\e[?2004l'`, then `read -rs T`, then strip control characters with `tr -d '\000-\037\177 '`, write the line back, and recreate the container. |
 | `exec format error` | The image was built for ARM. Build on the server, or on Janeway use `--platform linux/amd64`. |
 
 Logs: **[MACSERVER]** `cd ~/apps/lensiq && docker compose logs --tail 50 app`

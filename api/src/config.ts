@@ -43,6 +43,15 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   const notionToken = env.NOTION_TOKEN?.trim() ?? '';
   if (!notionToken) missing.push('NOTION_TOKEN');
+  // A pasted token can pick up terminal escape codes (bracketed paste) or other
+  // control characters. Node refuses to send them in a header, which would fail
+  // every Notion request with a generic error, so refuse to start instead.
+  // eslint-disable-next-line no-control-regex
+  if (notionToken && /[\x00-\x1f\x7f\s]/.test(notionToken)) {
+    throw new ConfigError(
+      'NOTION_TOKEN contains spaces or control characters (often terminal paste codes). Re-enter it in .env.',
+    );
+  }
 
   let access: AccessConfig | null = null;
   const teamDomain = env.CF_ACCESS_TEAM_DOMAIN?.trim();
