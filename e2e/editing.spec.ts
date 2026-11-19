@@ -96,7 +96,7 @@ test.describe('desktop', () => {
 
   test('add a row and delete a row', async ({ page }) => {
     await addJobSearch(page);
-    await page.getByRole('button', { name: '+ New' }).click();
+    await page.getByRole('button', { name: '+ New', exact: true }).click();
     const panel = page.getByRole('dialog', { name: 'New row' });
     await panel.getByRole('button', { name: 'Company' }).click();
     await panel.getByLabel('Company', { exact: true }).fill('Tailspin Toys');

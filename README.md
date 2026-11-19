@@ -4,7 +4,7 @@ Self-hosted dashboards for Notion: tables, boards and charts over your Notion da
 
 Notion's free plan allows one chart. LensIQ keeps Notion as the data store and adds the views on top: it reads each database's schema and builds its table from that, so connecting a new database means pasting its link, not writing code.
 
-> **Status: Phase 2 of 5 (editing).** Connect a Notion database, browse it as a typed table on a phone or laptop, and edit it: change cells inline, add rows, and delete rows, with every change written straight to Notion. Boards, charts and dashboards come next; see the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
+> **Status: Phase 3 of 5 (boards and charts).** Connect a Notion database and work with it the way a paid Notion plan allows: table, board and chart views with filters and sorting, drag cards between groups, and build dashboards that mix views from any database. Every edit is written straight to Notion. Next: the remaining databases, then polish and a public demo; see the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
 
 ## How it works
 
@@ -21,6 +21,9 @@ flowchart LR
 - Formulas and rollups come from Notion already calculated; LensIQ never re-implements Notion's math.
 - **Edits go straight to Notion.** Each edit shows on screen at once, then the API reads the page from Notion and compares the edited cell with the value you started from. If someone changed that cell in Notion meanwhile, you choose which value to keep instead of overwriting it silently. Changes to other columns don't count as conflicts.
 - **Staying in sync.** Opening a database shows the cached rows instantly and does a full reload behind them. While it stays open, LensIQ asks Notion every 60 seconds for rows edited since the last sync.
+- **Views, like Notion's.** Each database has view tabs (Table, Board, Chart) with their own filters, sorts and settings, saved in SQLite. Views store column IDs, never names, so renaming a column in Notion doesn't break them; a view that points at a deleted column says so instead of crashing. Filtering, sorting and chart math run in the browser on the cached rows, so changing a view costs no Notion requests.
+- **Charts.** Bar (vertical, horizontal, stacked), line, area (with running totals), donut and number tiles; count, sum, average, min or max; dates grouped by day, week, month or year; split by a select. Colors come from an eight-slot palette checked for color-vision deficiency in light and dark mode, and each Notion option keeps its own color. Every chart has a "Show data" table.
+- **Dashboards.** Any number of named pages, each a grid of views from any databases (a third, half, two thirds or full width), stacking to one column on a phone.
 - **Rate limit.** Every Notion request goes through one limiter that spaces requests about 400 ms apart (≈2.5/s, under Notion's 3/s average). The Notion SDK retries 429 responses, honoring `Retry-After`.
 - Every `/api` request must carry a valid Cloudflare Access JWT, so the app can't be reached by going around Cloudflare.
 
@@ -30,6 +33,7 @@ flowchart LR
 | --- | --- |
 | Front end | React 19, Vite, TypeScript, Tailwind CSS, TanStack Query |
 | API | Node 22, Fastify 5, TypeScript, `@notionhq/client` (Notion API `2025-09-03`) |
+| Charts and boards | Recharts (loaded only when a chart is on screen), dnd-kit |
 | Storage | SQLite via `better-sqlite3` |
 | Auth | Cloudflare Access (JWT verified with `jose`) |
 | Tests | Vitest + Testing Library (unit), Playwright (end-to-end, desktop and mobile) |
@@ -84,6 +88,10 @@ The E2E tests run the real API and built React app against a fixture Notion sour
 | `POST` | `/api/databases/:id/rows` | Create a row: `{ "cells": { "<columnId>": <cell value> } }` |
 | `PATCH` | `/api/databases/:id/rows/:pageId` | Set one cell: `{ columnId, value, expected, force? }`. Answers `409` with Notion's current value if that cell changed since `expected`. |
 | `DELETE` | `/api/databases/:id/rows/:pageId` | Move a row to Notion's trash |
+| `GET` | `/api/views?databaseId=` | Views of a database in tab order (a default Table view is created the first time), or every view |
+| `POST` / `PATCH` / `DELETE` | `/api/views`, `/api/views/:id` | Create a view (`databaseId`, `name`, `type`, optional `config`); change its name, settings or tab position; delete it (and its dashboard tiles) |
+| `GET` / `POST` | `/api/dashboards` | List or create dashboards |
+| `GET` / `PATCH` / `DELETE` | `/api/dashboards/:id` | One dashboard; rename it or replace its tiles (`{ viewId, size }` in order); delete it |
 
 ## Deployment
 

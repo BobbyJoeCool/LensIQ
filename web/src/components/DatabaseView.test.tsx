@@ -41,6 +41,17 @@ const response: RowsResponse = {
   rows: [row],
 };
 
+const tableView = {
+  id: 'v1',
+  databaseId: 'ds1',
+  name: 'Table',
+  type: 'table',
+  config: { filters: [], filterMode: 'and', sorts: [], hidden: [] },
+  position: 0,
+  createdAt: '',
+  updatedAt: '',
+};
+
 type Handler = (url: string, init: RequestInit | undefined) => Response | undefined;
 let handler: Handler;
 let calls: { url: string; method: string; body: any }[];
@@ -68,6 +79,7 @@ beforeEach(() => {
       const custom = handler(url, init);
       if (custom) return custom;
       if (url.startsWith('/api/databases/ds1/rows?')) return json(response);
+      if (url === '/api/views?databaseId=ds1') return json([tableView]);
       return json({ error: 'not_found', message: 'Not found.' }, 404);
     }),
   );

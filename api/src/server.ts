@@ -7,6 +7,7 @@ import type { AccessConfig } from './config.js';
 import { AppError } from './errors.js';
 import type { NotionSource } from './notion/source.js';
 import { registerRoutes } from './routes.js';
+import { registerViewRoutes } from './viewRoutes.js';
 import type { Store } from './store.js';
 import { SyncService } from './sync.js';
 
@@ -41,6 +42,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   const sync = new SyncService(deps.store, deps.notion);
   registerRoutes(app, deps.store, sync);
+  registerViewRoutes(app, deps.store);
 
   const hasWeb = deps.webDist !== undefined && fs.existsSync(deps.webDist);
   if (hasWeb) {

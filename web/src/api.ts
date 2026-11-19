@@ -1,7 +1,13 @@
 import type {
   AddDatabaseRequest,
   ApiError,
+  CreateDashboardRequest,
   CreateRowRequest,
+  CreateViewRequest,
+  Dashboard,
+  UpdateDashboardRequest,
+  UpdateViewRequest,
+  View,
   DatabaseDetail,
   DatabaseSummary,
   Row,
@@ -63,4 +69,19 @@ export const api = {
     request<Row>(`${db(id)}/rows`, { method: 'POST', body: JSON.stringify(body) }),
   deleteRow: (id: string, pageId: string) =>
     request<void>(`${db(id)}/rows/${encodeURIComponent(pageId)}`, { method: 'DELETE' }),
+
+  listViews: (databaseId?: string) =>
+    request<View[]>(databaseId ? `/api/views?databaseId=${encodeURIComponent(databaseId)}` : '/api/views'),
+  createView: (body: CreateViewRequest) => request<View>('/api/views', { method: 'POST', body: JSON.stringify(body) }),
+  updateView: (id: string, body: UpdateViewRequest) =>
+    request<View>(`/api/views/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteView: (id: string) => request<void>(`/api/views/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  listDashboards: () => request<Dashboard[]>('/api/dashboards'),
+  getDashboard: (id: string) => request<Dashboard>(`/api/dashboards/${encodeURIComponent(id)}`),
+  createDashboard: (body: CreateDashboardRequest) =>
+    request<Dashboard>('/api/dashboards', { method: 'POST', body: JSON.stringify(body) }),
+  updateDashboard: (id: string, body: UpdateDashboardRequest) =>
+    request<Dashboard>(`/api/dashboards/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  deleteDashboard: (id: string) => request<void>(`/api/dashboards/${encodeURIComponent(id)}`, { method: 'DELETE' }),
 };

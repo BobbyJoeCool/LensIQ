@@ -11,6 +11,8 @@ describe('parseHash', () => {
     expect(parseHash('#/add')).toEqual({ page: 'add' });
     expect(parseHash('#/db/abc%2D1')).toEqual({ page: 'db', id: 'abc-1' });
     expect(parseHash('#/db/')).toEqual({ page: 'home' });
+    expect(parseHash('#/db/ds1/v/v%201')).toEqual({ page: 'db', id: 'ds1', viewId: 'v 1' });
+    expect(parseHash('#/dash/d1')).toEqual({ page: 'dash', id: 'd1' });
   });
 });
 
@@ -55,7 +57,7 @@ describe('App', () => {
   });
 
   it('shows the add form when no databases are connected', async () => {
-    mockFetch({ '/api/databases': [] });
+    mockFetch({ '/api/databases': [], '/api/dashboards': [] });
     renderApp();
     expect(await screen.findByRole('heading', { name: 'Add a Notion database' })).toBeInTheDocument();
   });
@@ -65,6 +67,10 @@ describe('App', () => {
       '/api/databases': [{ id: 'ds1', databaseId: 'db1', name: 'Job Search', lastSyncedAt: null, rowCount: 1 }],
       '/api/databases/ds1/rows?sync=none': rowsResponse,
       '/api/databases/ds1/refresh': rowsResponse,
+      '/api/dashboards': [],
+      '/api/views?databaseId=ds1': [
+        { id: 'v1', databaseId: 'ds1', name: 'Table', type: 'table', config: { filters: [], filterMode: 'and', sorts: [], hidden: [] }, position: 0, createdAt: '', updatedAt: '' },
+      ],
     });
     renderApp();
     expect(await screen.findByRole('heading', { name: 'Job Search' })).toBeInTheDocument();

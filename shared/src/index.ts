@@ -171,3 +171,154 @@ export interface ApiError {
   error: string;
   message: string;
 }
+
+// ---------------------------------------------------------------------------
+// Views and dashboards (Phase 3)
+// ---------------------------------------------------------------------------
+
+export type ViewType = 'table' | 'board' | 'chart';
+
+/**
+ * Filter operators. Which ones apply depends on the column's value kind
+ * (see web/src/views/query.ts); a filter whose column is gone is ignored and
+ * the view is flagged.
+ */
+export type FilterOp =
+  | 'is_empty'
+  | 'is_not_empty'
+  // text, link
+  | 'contains'
+  | 'not_contains'
+  | 'equals'
+  | 'not_equals'
+  // number
+  | 'eq'
+  | 'neq'
+  | 'gt'
+  | 'gte'
+  | 'lt'
+  | 'lte'
+  // select, status, multi-select (value: option IDs)
+  | 'any_of'
+  | 'none_of'
+  // checkbox
+  | 'checked'
+  | 'unchecked'
+  // date (value: ISO date for before/after; a day count for past/next)
+  | 'before'
+  | 'after'
+  | 'on_or_before'
+  | 'on_or_after'
+  | 'past_days'
+  | 'next_days';
+
+export interface Filter {
+  id: string;
+  /** Column (property) ID, never the name, so renames don't break views. */
+  columnId: string;
+  op: FilterOp;
+  value?: string | number | string[];
+}
+
+export interface Sort {
+  columnId: string;
+  direction: 'asc' | 'desc';
+}
+
+interface ViewConfigBase {
+  filters: Filter[];
+  /** How filters combine. */
+  filterMode: 'and' | 'or';
+  sorts: Sort[];
+}
+
+export interface TableConfig extends ViewConfigBase {
+  /** Column IDs hidden in this view. New columns show by default. */
+  hidden: string[];
+}
+
+export interface BoardConfig extends ViewConfigBase {
+  /** A select or status column. Null until chosen. */
+  groupBy: string | null;
+  /** Columns shown on each card besides the title. */
+  cardFields: string[];
+  hideEmptyGroups: boolean;
+}
+
+export type ChartType = 'bar' | 'line' | 'area' | 'pie' | 'stat';
+export type Aggregation = 'count' | 'sum' | 'avg' | 'min' | 'max';
+export type DateGrouping = 'day' | 'week' | 'month' | 'year';
+
+export interface ChartConfig extends ViewConfigBase {
+  chartType: ChartType;
+  /** Category or time column for the x-axis (or pie slices). Unused by stat. */
+  x: string | null;
+  dateGrouping: DateGrouping;
+  aggregation: Aggregation;
+  /** Number column for sum/avg/min/max. Unused by count. */
+  y: string | null;
+  /** Optional select/status/checkbox column to split bars or lines into series. */
+  splitBy: string | null;
+  horizontal: boolean;
+  stacked: boolean;
+  /** Line/area: running total. */
+  cumulative: boolean;
+  /** Category order for bar and pie: by label (x) or by value, largest first. */
+  sortBy: 'x' | 'value';
+  /** Bar/pie: hide categories with no rows. */
+  hideEmpty: boolean;
+}
+
+export type ViewConfig = TableConfig | BoardConfig | ChartConfig;
+
+export interface View {
+  id: string;
+  /** Data source ID of the database this view shows. */
+  databaseId: string;
+  name: string;
+  type: ViewType;
+  config: ViewConfig;
+  /** Tab order within the database. */
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateViewRequest {
+  databaseId: string;
+  name: string;
+  type: ViewType;
+  config?: ViewConfig;
+}
+
+export interface UpdateViewRequest {
+  name?: string;
+  config?: ViewConfig;
+  position?: number;
+}
+
+export type TileSize = 'small' | 'medium' | 'large' | 'full';
+
+export interface DashboardTile {
+  id: string;
+  viewId: string;
+  size: TileSize;
+}
+
+export interface Dashboard {
+  id: string;
+  name: string;
+  /** Tiles in order; the grid flows them left to right, one column on a phone. */
+  tiles: DashboardTile[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDashboardRequest {
+  name: string;
+}
+
+export interface UpdateDashboardRequest {
+  name?: string;
+  tiles?: DashboardTile[];
+}

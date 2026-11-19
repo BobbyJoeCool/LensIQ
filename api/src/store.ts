@@ -41,6 +41,27 @@ const MIGRATIONS: string[] = [
   `
   ALTER TABLE databases ADD COLUMN changes_checked_at TEXT;
   `,
+  // v3 (Phase 3): saved views (table, board, chart) and dashboards.
+  `
+  CREATE TABLE views (
+    id             TEXT PRIMARY KEY,
+    data_source_id TEXT NOT NULL REFERENCES databases(id) ON DELETE CASCADE,
+    name           TEXT NOT NULL,
+    type           TEXT NOT NULL CHECK (type IN ('table', 'board', 'chart')),
+    config         TEXT NOT NULL,              -- JSON: ViewConfig (column IDs, never names)
+    position       INTEGER NOT NULL,
+    created_at     TEXT NOT NULL,
+    updated_at     TEXT NOT NULL
+  );
+  CREATE INDEX views_by_data_source ON views (data_source_id, position);
+  CREATE TABLE dashboards (
+    id         TEXT PRIMARY KEY,
+    name       TEXT NOT NULL,
+    tiles      TEXT NOT NULL,                  -- JSON: DashboardTile[] in order
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+  `,
 ];
 
 interface DatabaseRecord {

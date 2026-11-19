@@ -5,7 +5,7 @@ import type { DatabaseEditing } from '../editing/useDatabaseEditing';
 import { Cell } from './cells/Cell';
 import { CellEditor } from './editors/CellEditor';
 
-export type PanelState = { mode: 'edit'; rowId: string } | { mode: 'create' };
+export type PanelState = { mode: 'edit'; rowId: string } | { mode: 'create'; initial?: Record<string, CellValue> };
 
 interface Props {
   columns: Column[];
@@ -22,7 +22,7 @@ interface Props {
  */
 export function RowPanel({ columns, state, row, editing, onClose }: Props) {
   const creating = state.mode === 'create';
-  const [draft, setDraft] = useState<Record<string, CellValue>>({});
+  const [draft, setDraft] = useState<Record<string, CellValue>>(state.mode === 'create' ? (state.initial ?? {}) : {});
   const [active, setActive] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
