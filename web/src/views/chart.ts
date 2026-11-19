@@ -266,8 +266,8 @@ export function chartData(rows: Row[], columns: Column[], config: ChartConfig): 
     if (xCol.type !== 'status' || buckets.has(NONE_KEY)) categories.push({ key: NONE_KEY, label: `No ${xCol.name}` });
   } else if (xKind === 'checkbox') {
     categories = [
-      { key: 'true', label: 'Checked' },
-      { key: 'false', label: 'Unchecked' },
+      { key: 'true', label: xCol.name },
+      { key: 'false', label: `Not ${xCol.name.toLowerCase()}` },
     ];
   } else {
     const keys = [...buckets.keys()].filter((k) => k !== NONE_KEY);
@@ -287,8 +287,8 @@ export function chartData(rows: Row[], columns: Column[], config: ChartConfig): 
       if (seriesSeen.has(NONE_KEY)) all.push({ key: NONE_KEY, label: `No ${splitCol.name}` });
     } else if (splitKind === 'checkbox') {
       all = [
-        { key: 'true', label: 'Checked' },
-        { key: 'false', label: 'Unchecked' },
+        { key: 'true', label: splitCol.name },
+        { key: 'false', label: `Not ${splitCol.name.toLowerCase()}` },
       ];
     } else {
       all = [...seriesSeen.keys()].map((k) => ({ key: k, label: k === NONE_KEY ? `No ${splitCol.name}` : k }));

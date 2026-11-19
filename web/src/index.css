@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 html, body, #root { height: 100%; }
+/* Installed on an iPhone the status bar overlays the page: keep content clear of it and the home indicator. */
+#root { padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left); }
 body {
   @apply bg-slate-50 text-slate-900 antialiased dark:bg-slate-950 dark:text-slate-100;
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;

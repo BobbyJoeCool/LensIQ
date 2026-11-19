@@ -93,3 +93,14 @@ test('an unknown database link shows an error', async ({ page }) => {
   await page.goto('/#/db/does-not-exist');
   await expect(page.getByRole('alert')).toContainText('No connected database');
 });
+
+test('the app is installable: manifest, icons and service worker are served (#35)', async ({ page, request }) => {
+  const manifest = await request.get('/manifest.webmanifest');
+  expect(manifest.ok()).toBe(true);
+  expect(await manifest.json()).toMatchObject({ name: 'LensIQ', display: 'standalone' });
+  expect((await request.get('/apple-touch-icon.png')).headers()['content-type']).toContain('image/png');
+  expect((await request.get('/sw.js')).ok()).toBe(true);
+  await page.goto('/');
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveAttribute('href', '/apple-touch-icon.png');
+  await expect.poll(() => page.evaluate(async () => Boolean(await navigator.serviceWorker.getRegistration()))).toBe(true);
+});

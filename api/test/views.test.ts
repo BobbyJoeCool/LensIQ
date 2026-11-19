@@ -111,3 +111,35 @@ describe('calendar views', () => {
     expect(res.json<View>().config).toMatchObject({ dateColumn: 'appl' });
   });
 });
+
+describe('export and import (#38)', () => {
+  it('round-trips views and dashboards, skipping databases that are not connected', async () => {
+    const chart = (await createView({ databaseId: DS, name: 'Weekly', type: 'chart' })).json<View>();
+    const dash = (await app.inject({ method: 'POST', url: '/api/dashboards', payload: { name: 'Job Search' } })).json<Dashboard>();
+    await app.inject({ method: 'PATCH', url: `/api/dashboards/${dash.id}`, payload: { tiles: [{ viewId: chart.id, size: 'full' }] } });
+
+    const exported = await app.inject({ method: 'GET', url: '/api/export' });
+    expect(exported.headers['content-disposition']).toMatch(/lensiq-views-\d{4}-\d{2}-\d{2}\.json/);
+    const file = exported.json();
+    expect(file).toMatchObject({ app: 'lensiq', version: 1 });
+    expect(file.views.map((v: View) => v.name)).toEqual(['Weekly']);
+    // An extra view for a database this server doesn't have.
+    file.views.push({ ...file.views[0], id: 'other', databaseId: 'not-connected', name: 'Elsewhere' });
+
+    // Import into a fresh server with the same database connected.
+    const app2 = buildServer({ store: new Store(':memory:'), notion: new FixtureNotionSource(), access: null });
+    await app2.inject({ method: 'POST', url: '/api/databases', payload: { idOrUrl: JOB_SEARCH_DB_ID } });
+    const res = await app2.inject({ method: 'POST', url: '/api/import', payload: file });
+    expect(res.json()).toEqual({ viewsCreated: 1, dashboardsCreated: 1, viewsSkipped: 1 });
+    const dashes = (await app2.inject({ method: 'GET', url: '/api/dashboards' })).json<Dashboard[]>();
+    const views2 = (await app2.inject({ method: 'GET', url: '/api/views' })).json<View[]>();
+    expect(dashes[0]!.tiles).toHaveLength(1);
+    expect(dashes[0]!.tiles[0]).toMatchObject({ viewId: views2.find((v) => v.name === 'Weekly')!.id, size: 'full' });
+    await app2.close();
+  });
+
+  it('rejects files that are not LensIQ exports', async () => {
+    const res = await app.inject({ method: 'POST', url: '/api/import', payload: { app: 'other', version: 1, views: [], dashboards: [] } });
+    expect(res.statusCode).toBe(400);
+  });
+});

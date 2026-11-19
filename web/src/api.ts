@@ -5,6 +5,8 @@ import type {
   CreateRowRequest,
   CreateViewRequest,
   Dashboard,
+  ExportFile,
+  ImportResult,
   RelationOptionsResponse,
   UpdateDashboardRequest,
   UpdateViewRequest,
@@ -91,4 +93,7 @@ export const api = {
   updateDashboard: (id: string, body: UpdateDashboardRequest) =>
     request<Dashboard>(`/api/dashboards/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(body) }),
   deleteDashboard: (id: string) => request<void>(`/api/dashboards/${encodeURIComponent(id)}`, { method: 'DELETE' }),
+
+  exportAll: () => request<ExportFile>('/api/export'),
+  importAll: (file: ExportFile) => request<ImportResult>('/api/import', { method: 'POST', body: JSON.stringify(file) }),
 };

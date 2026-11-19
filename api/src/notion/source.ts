@@ -76,11 +76,12 @@ export function toAppError(err: unknown): unknown {
 export class NotionApiSource implements NotionSource {
   private readonly client: InstanceType<typeof Client>;
 
-  constructor(token: string, limiter = new RateLimiter()) {
+  /** `fetchImpl` is for tests (a fake Notion HTTP API). */
+  constructor(token: string, limiter = new RateLimiter(), fetchImpl: typeof fetch = fetch) {
     // Every HTTP request goes through the limiter (~2.5 req/s). The SDK itself
     // retries 429 and 5xx responses, honoring Retry-After; those retries are
     // also spaced by the limiter because it wraps fetch.
-    this.client = new Client({ auth: token, notionVersion: NOTION_VERSION, fetch: limiter.wrapFetch() });
+    this.client = new Client({ auth: token, notionVersion: NOTION_VERSION, fetch: limiter.wrapFetch(fetchImpl) });
   }
 
   async resolve(idOrUrl: string): Promise<ResolvedSource> {
