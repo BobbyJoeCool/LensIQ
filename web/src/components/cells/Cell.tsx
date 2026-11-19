@@ -3,6 +3,8 @@
  * extra context such as the number format.
  */
 import type { CellValue, Column, SelectOption } from '@lensiq/shared';
+import { api } from '../../api';
+import { useCellContext, useRelationOptions } from '../../cellContext';
 import { OPTION_COLORS, formatDate, formatNumber } from '../../format';
 
 const Empty = () => <span className="text-slate-300 dark:text-slate-600">—</span>;
@@ -23,7 +25,36 @@ function hrefFor(value: string, linkType: 'url' | 'email' | 'phone_number'): str
   return /^https?:\/\//i.test(value) ? value : `https://${value}`;
 }
 
-export function Cell({ value, column }: { value: CellValue | undefined; column: Column }) {
+/** Linked page titles as chips; falls back to a count when titles aren't available. */
+function RelationCell({ value, column }: { value: Extract<CellValue, { kind: 'relation' }>; column: Column }) {
+  const options = useRelationOptions(column);
+  if (!value.value.length) return <Empty />;
+  const titles = new Map((options.data?.options ?? []).map((o) => [o.id.replace(/-/g, ''), o.title]));
+  const named = value.value.map((id) => titles.get(id.replace(/-/g, ''))).filter((t): t is string => !!t);
+  if (named.length === 0) {
+    return (
+      <span className="text-slate-600 dark:text-slate-300" title={options.data && !options.data.available ? 'Share the related database with the LensIQ connection to see titles' : undefined}>
+        {value.value.length}
+        {value.hasMore ? '+' : ''} linked
+      </span>
+    );
+  }
+  const shown = named.slice(0, 3);
+  const extra = value.value.length - shown.length;
+  return (
+    <span className="flex flex-wrap gap-1">
+      {shown.map((t, i) => (
+        <span key={i} className="max-w-full truncate rounded border border-slate-200 px-1.5 py-0.5 text-xs dark:border-slate-700">
+          ↗ {t}
+        </span>
+      ))}
+      {(extra > 0 || value.hasMore) && <span className="text-xs text-slate-500">+{extra}{value.hasMore ? '+' : ''}</span>}
+    </span>
+  );
+}
+
+export function Cell({ value, column, rowId }: { value: CellValue | undefined; column: Column; rowId?: string }) {
+  const ctx = useCellContext();
   if (!value) return <Empty />;
   switch (value.kind) {
     case 'text':
@@ -86,15 +117,7 @@ export function Cell({ value, column }: { value: CellValue | undefined; column: 
       return value.value.length ? <span>{value.value.join(', ')}</span> : <Empty />;
 
     case 'relation':
-      // Linked titles arrive with the relation picker in Phase 4.
-      return value.value.length ? (
-        <span className="text-slate-600 dark:text-slate-300">
-          {value.value.length}
-          {value.hasMore ? '+' : ''} linked
-        </span>
-      ) : (
-        <Empty />
-      );
+      return <RelationCell value={value} column={column} />;
 
     case 'files':
       return value.value.length ? (
@@ -103,7 +126,9 @@ export function Cell({ value, column }: { value: CellValue | undefined; column: 
             f.url ? (
               <a
                 key={i}
-                href={f.url}
+                // Notion-hosted links expire after about an hour: go through the API for a fresh one (#31).
+                href={f.hosted && ctx && rowId ? api.fileHref(ctx.dbId, rowId, column.id, i) : f.url}
+                onClick={(e) => e.stopPropagation()}
                 target="_blank"
                 rel="noreferrer"
                 className="max-w-xs truncate text-sky-700 underline underline-offset-2 dark:text-sky-400"
@@ -123,7 +148,7 @@ export function Cell({ value, column }: { value: CellValue | undefined; column: 
       return value.value.length ? (
         <span className="flex flex-wrap gap-x-2 gap-y-1">
           {value.value.map((v, i) => (
-            <Cell key={i} value={v} column={column} />
+            <Cell key={i} value={v} column={column} rowId={rowId} />
           ))}
         </span>
       ) : (

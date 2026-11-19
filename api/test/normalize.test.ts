@@ -63,7 +63,7 @@ describe('toCell', () => {
     expect(toCell({ id: 'u', type: 'unique_id', unique_id: { prefix: 'JOB', number: 7 } })).toEqual({ kind: 'text', value: 'JOB-7' });
   });
 
-  it('reads files from internal and external URLs', () => {
+  it('reads files from internal and external URLs, marking Notion-hosted ones', () => {
     expect(
       toCell({
         id: 'f',
@@ -76,7 +76,7 @@ describe('toCell', () => {
     ).toEqual({
       kind: 'files',
       value: [
-        { name: 'bill.pdf', url: 'https://s3/bill.pdf' },
+        { name: 'bill.pdf', url: 'https://s3/bill.pdf', hosted: true }, // expires: links go through the API
         { name: 'link', url: 'https://example.com' },
       ],
     });

@@ -38,7 +38,7 @@ export function registerViewRoutes(app: FastifyInstance, store: Store): void {
           properties: {
             databaseId: { type: 'string', minLength: 1 },
             name: { type: 'string' },
-            type: { type: 'string', enum: ['table', 'board', 'chart'] },
+            type: { type: 'string', enum: ['table', 'board', 'chart', 'calendar'] },
             config: { type: 'object' },
           },
         },

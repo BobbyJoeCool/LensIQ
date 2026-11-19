@@ -81,6 +81,21 @@ export function registerRoutes(app: FastifyInstance, store: Store, sync: SyncSer
     async (req) => sync.updateCell(req.params.id, req.params.pageId, req.body),
   );
 
+  app.get<DbParams & { Params: { columnId: string } }>('/api/databases/:id/relations/:columnId', async (req) =>
+    sync.relationOptions(req.params.id, req.params.columnId),
+  );
+
+  /** Redirects to a freshly signed URL for a Notion-hosted file (they expire after about an hour). */
+  app.get<{ Params: { id: string; pageId: string; columnId: string; index: string } }>(
+    '/api/databases/:id/rows/:pageId/files/:columnId/:index',
+    async (req, reply) => {
+      const index = Number(req.params.index);
+      if (!Number.isInteger(index) || index < 0) return reply.code(400).send({ error: 'bad_request', message: 'Bad file index.' });
+      const url = await sync.freshFileUrl(req.params.id, req.params.pageId, req.params.columnId, index);
+      return reply.header('Cache-Control', 'no-store').redirect(url, 302);
+    },
+  );
+
   app.delete<RowParams>('/api/databases/:id/rows/:pageId', async (req, reply) => {
     await sync.deleteRow(req.params.id, req.params.pageId);
     return reply.code(204).send();

@@ -3,6 +3,7 @@ import type {
   CreateRowRequest,
   DatabaseDetail,
   Row,
+  RelationOptionsResponse,
   RowsResponse,
   SyncMode,
   UpdateCellRequest,
@@ -66,7 +67,53 @@ export class SyncService {
       const { name, schema } = await this.notion.fetchSchema(id);
       const rows = await this.notion.fetchRows(id);
       this.store.replaceAll(id, name, schema, rows, startedAt);
+      await this.refreshTitles(schema.columns.flatMap((c) => (c.relatedDataSourceId ? [c.relatedDataSourceId] : [])));
     });
+  }
+
+  /**
+   * Re-reads the titles of related data sources (Q20). A source Notion refuses
+   * (not shared with the connection) is remembered as unavailable; any other
+   * failure keeps the old titles, so a hiccup never fails the sync.
+   */
+  private async refreshTitles(dataSourceIds: string[]): Promise<void> {
+    for (const ds of new Set(dataSourceIds)) {
+      try {
+        this.store.replaceTitles(ds, await this.notion.fetchTitles(ds), new Date(this.now()).toISOString());
+      } catch (err) {
+        if (err instanceof AppError && (err.statusCode === 403 || err.statusCode === 404)) {
+          this.store.replaceTitles(ds, null, new Date(this.now()).toISOString());
+        }
+      }
+    }
+  }
+
+  /** Titles to show for a relation column and pick from. Reads Notion the first time. */
+  async relationOptions(id: string, columnId: string): Promise<RelationOptionsResponse> {
+    const db = this.requireDatabase(id);
+    const column = db.schema.columns.find((c) => c.id === columnId);
+    if (!column || column.type !== 'relation') throw new AppError(404, 'unknown_column', 'That relation column no longer exists. Try Refresh.');
+    if (!column.relatedDataSourceId) return { available: false, options: [] };
+    let cached = this.store.getTitles(column.relatedDataSourceId);
+    if (!cached) {
+      await this.refreshTitles([column.relatedDataSourceId]);
+      cached = this.store.getTitles(column.relatedDataSourceId) ?? { available: false, options: [] };
+    }
+    return cached;
+  }
+
+  /**
+   * A fresh URL for a file in a row: Notion-hosted file links expire after
+   * about an hour, so the page is read again whenever a file is opened (#31).
+   */
+  async freshFileUrl(id: string, pageId: string, columnId: string, index: number): Promise<string> {
+    this.requireDatabase(id);
+    this.requireRow(id, pageId);
+    const row = await this.readRow(id, pageId);
+    const cell = row.cells[columnId];
+    const file = cell?.kind === 'files' ? cell.value[index] : undefined;
+    if (!file?.url) throw new AppError(404, 'file_not_found', 'That file is no longer attached in Notion.');
+    return file.url;
   }
 
   /** Fetches rows edited since the last sync. Falls back to a full load if never synced. */

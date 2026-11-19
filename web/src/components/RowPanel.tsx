@@ -106,11 +106,11 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
                       onClick={() => setActive(column.id)}
                       className="flex min-h-11 w-full items-center rounded-md px-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
                     >
-                      <Cell value={value} column={column} />
+                      <Cell value={value} column={column} rowId={row?.id} />
                     </button>
                   ) : (
                     <div className="flex min-h-11 items-center gap-2 px-2 text-sm">
-                      <Cell value={row?.cells[column.id]} column={column} />
+                      <Cell value={row?.cells[column.id]} column={column} rowId={row?.id} />
                       {value.kind === 'text' && value.rich && (
                         <a href={row?.url} target="_blank" rel="noreferrer" className="shrink-0 text-xs text-sky-700 underline dark:text-sky-400" title="This text has formatting or links, so it's edited in Notion">
                           Edit in Notion

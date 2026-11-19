@@ -8,8 +8,8 @@ import { Popover, fieldClass, smallButton } from './ui';
 
 export { markSynced, resetSyncMemory } from '../useDatabaseRows';
 
-const TYPE_LABEL: Record<ViewType, string> = { table: 'Table', board: 'Board', chart: 'Chart' };
-const TYPE_ICON: Record<ViewType, string> = { table: '▦', board: '▥', chart: '▁▃▅' };
+const TYPE_LABEL: Record<ViewType, string> = { table: 'Table', board: 'Board', chart: 'Chart', calendar: 'Calendar' };
+const TYPE_ICON: Record<ViewType, string> = { table: '▦', board: '▥', chart: '▁▃▅', calendar: '▤' };
 
 export const viewHref = (dbId: string, viewId: string) => `#/db/${encodeURIComponent(dbId)}/v/${encodeURIComponent(viewId)}`;
 
@@ -183,7 +183,7 @@ function ViewTabs({ dbId, views, active }: { dbId: string; views: View[]; active
         >
           {(close) => (
             <div className="flex flex-col" aria-label="Add a view">
-              {(['table', 'board', 'chart'] as ViewType[]).map((t) => (
+              {(['table', 'board', 'chart', 'calendar'] as ViewType[]).map((t) => (
                 <button key={t} type="button" className="min-h-10 rounded px-2 text-left hover:bg-slate-100 dark:hover:bg-slate-800" onClick={() => (close(), add(t))}>
                   <span aria-hidden className="mr-2 text-slate-400">
                     {TYPE_ICON[t]}

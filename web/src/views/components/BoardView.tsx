@@ -173,7 +173,7 @@ function CardBody({ row, title, fields, onOpen, lifted }: { row: Row; title: Col
             <div key={c.id} className="flex min-w-0 gap-2 text-xs">
               <dt className="sr-only">{c.name}</dt>
               <dd className="min-w-0">
-                <Cell value={row.cells[c.id]} column={c} />
+                <Cell value={row.cells[c.id]} column={c} rowId={row.id} />
               </dd>
             </div>
           ))}

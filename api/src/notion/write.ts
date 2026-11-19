@@ -18,6 +18,7 @@ export const EDITABLE_TYPES: ReadonlySet<ColumnType> = new Set<ColumnType>([
   'url',
   'email',
   'phone_number',
+  'relation',
 ]);
 
 export function isEditable(column: Column): boolean {
@@ -140,6 +141,15 @@ export function toNotionProperty(column: Column, value: CellValue): Record<strin
       if (s.length > 2000) throw new AppError(400, 'too_long', 'That value is too long for Notion.');
       return { [column.type]: s };
     }
+    case 'relation': {
+      if (empty) return { relation: [] };
+      if (value.kind !== 'relation') wrongKind(column, value);
+      if (value.hasMore) {
+        throw new AppError(422, 'read_only', `"${column.name}" has more than 25 links, which Notion only shows in part. Edit it in Notion.`);
+      }
+      if (value.value.length > 100) throw new AppError(400, 'too_long', 'Notion allows up to 100 links per relation.');
+      return { relation: [...new Set(value.value)].map((id) => ({ id })) };
+    }
     default:
       throw new AppError(422, 'read_only', `"${column.name}" can't be edited here.`);
   }
@@ -180,7 +190,8 @@ export function sameCell(a: CellValue | undefined, b: CellValue | undefined): bo
     c.kind === 'empty' ||
     (c.kind === 'text' && c.value === '') ||
     ((c.kind === 'number' || c.kind === 'date' || c.kind === 'select' || c.kind === 'link') && c.value === null) ||
-    (c.kind === 'multi_select' && c.value.length === 0);
+    (c.kind === 'multi_select' && c.value.length === 0) ||
+    (c.kind === 'relation' && c.value.length === 0 && !c.hasMore);
   if (isBlank(a) && isBlank(b)) return true;
   if (!a || !b) return false;
   if (a.kind === 'select' && b.kind === 'select') return a.value?.id === b.value?.id;
@@ -189,5 +200,9 @@ export function sameCell(a: CellValue | undefined, b: CellValue | undefined): bo
     return ids(a) === ids(b);
   }
   if (a.kind === 'text' && b.kind === 'text') return a.value === b.value;
+  if (a.kind === 'relation' && b.kind === 'relation') {
+    const norm = (ids: string[]) => ids.map((id) => id.replace(/-/g, '')).sort().join(',');
+    return a.hasMore === b.hasMore && norm(a.value) === norm(b.value);
+  }
   return JSON.stringify(canonical(a)) === JSON.stringify(canonical(b));
 }

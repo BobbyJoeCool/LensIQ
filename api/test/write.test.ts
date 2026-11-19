@@ -110,8 +110,16 @@ describe('toNotionProperty', () => {
 
   it('refuses read-only columns and mismatched kinds', () => {
     expectError(() => toNotionProperty(col('formula'), { kind: 'number', value: 1 }), 422, /calculated/);
-    expectError(() => toNotionProperty(col('relation'), { kind: 'empty' }), 422, /calculated/);
+    expectError(() => toNotionProperty(col('people'), { kind: 'empty' }), 422, /calculated/);
     expectError(() => toNotionProperty(col('checkbox'), { kind: 'text', value: 'yes' }), 400, /can't be set/);
+  });
+
+  it('writes relations as page IDs, deduplicated, and refuses truncated ones', () => {
+    expect(toNotionProperty(col('relation'), { kind: 'relation', value: ['a', 'b', 'a'], hasMore: false })).toEqual({
+      relation: [{ id: 'a' }, { id: 'b' }],
+    });
+    expect(toNotionProperty(col('relation'), { kind: 'empty' })).toEqual({ relation: [] });
+    expectError(() => toNotionProperty(col('relation'), { kind: 'relation', value: ['a'], hasMore: true }), 422, /more than 25/);
   });
 
   it('builds a properties object and rejects unknown columns', () => {
@@ -141,6 +149,12 @@ describe('sameCell', () => {
     expect(
       sameCell({ kind: 'multi_select', value: [opt('a'), opt('b')] }, { kind: 'multi_select', value: [opt('b'), opt('a')] }),
     ).toBe(true);
+  });
+
+  it('compares relations by ID set, ignoring dashes and order', () => {
+    expect(sameCell({ kind: 'relation', value: ['ab-cd', 'ef'], hasMore: false }, { kind: 'relation', value: ['ef', 'abcd'], hasMore: false })).toBe(true);
+    expect(sameCell({ kind: 'relation', value: ['a'], hasMore: false }, { kind: 'relation', value: ['b'], hasMore: false })).toBe(false);
+    expect(sameCell({ kind: 'relation', value: [], hasMore: false }, { kind: 'empty' })).toBe(true);
   });
 
   it('compares text by content, ignoring the rich flag, and other kinds deeply', () => {

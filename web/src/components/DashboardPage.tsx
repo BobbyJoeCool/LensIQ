@@ -185,7 +185,7 @@ function AddTile({ views, databases, onAdd }: { views: View[]; databases: Databa
   const [dbId, setDbId] = useState(databases[0]?.id ?? '');
   const [type, setType] = useState<ViewType>('chart');
   const create = useMutation({
-    mutationFn: () => api.createView({ databaseId: dbId, name: type === 'chart' ? 'Chart' : type === 'board' ? 'Board' : 'Table', type }),
+    mutationFn: () => api.createView({ databaseId: dbId, name: type[0]!.toUpperCase() + type.slice(1), type }),
     onSuccess: (v) => {
       void queryClient.invalidateQueries({ queryKey: ['views'] });
       onAdd(v.id);
@@ -233,6 +233,7 @@ function AddTile({ views, databases, onAdd }: { views: View[]; databases: Databa
             <option value="chart">Chart</option>
             <option value="board">Board</option>
             <option value="table">Table</option>
+            <option value="calendar">Calendar</option>
           </select>
           <select aria-label="Database for the new view" className={fieldClass} value={dbId} onChange={(e) => setDbId(e.target.value)}>
             {databases.map((db) => (

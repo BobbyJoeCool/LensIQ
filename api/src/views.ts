@@ -7,6 +7,7 @@ import { randomUUID } from 'node:crypto';
 import type Database from 'better-sqlite3';
 import type {
   BoardConfig,
+  CalendarConfig,
   ChartConfig,
   Dashboard,
   DashboardTile,
@@ -25,6 +26,7 @@ export function defaultConfig(type: ViewType, schema: Schema): ViewConfig {
   const base = { filters: [], filterMode: 'and' as const, sorts: [] };
   const firstOf = (...types: string[]) => schema.columns.find((c) => types.includes(c.type))?.id ?? null;
   if (type === 'table') return { ...base, hidden: [] } satisfies TableConfig;
+  if (type === 'calendar') return { ...base, dateColumn: firstOf('date', 'created_time', 'last_edited_time') } satisfies CalendarConfig;
   if (type === 'board') {
     return { ...base, groupBy: firstOf('status', 'select'), cardFields: [], hideEmptyGroups: false } satisfies BoardConfig;
   }
@@ -123,7 +125,7 @@ export class ViewRepo {
   }
 
   create(input: { databaseId: string; name: string; type: ViewType; config: ViewConfig }): View {
-    if (!['table', 'board', 'chart'].includes(input.type)) throw new AppError(400, 'bad_view', 'Unknown view type.');
+    if (!['table', 'board', 'chart', 'calendar'].includes(input.type)) throw new AppError(400, 'bad_view', 'Unknown view type.');
     const name = cleanName(input.name, 'view');
     const config = checkConfig(input.type, input.config);
     const now = new Date().toISOString();

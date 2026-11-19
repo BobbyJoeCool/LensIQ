@@ -1,4 +1,4 @@
-import type { BoardConfig, ChartConfig, ChartType, Column, Row, TableConfig } from '@lensiq/shared';
+import type { BoardConfig, CalendarConfig, ChartConfig, ChartType, Column, Row, TableConfig } from '@lensiq/shared';
 import { Popover, SelectField, Toggle, smallButton } from '../../components/ui';
 import { columnKind } from '../query';
 
@@ -26,6 +26,26 @@ export function PropertiesMenu({ columns, config, onChange }: { columns: Column[
           {columns.map((c) => (
             <Toggle key={c.id} label={c.name} checked={c.type === 'title' || !hidden.has(c.id)} onChange={(v) => c.type !== 'title' && toggle(c.id, v)} />
           ))}
+        </div>
+      )}
+    </Popover>
+  );
+}
+
+/** Calendar: which date property places rows. */
+export function CalendarSettings({ columns, config, onChange }: { columns: Column[]; config: CalendarConfig; onChange: (c: CalendarConfig) => void }) {
+  const dates = columns.filter((c) => c.type === 'date' || c.type === 'created_time' || c.type === 'last_edited_time');
+  return (
+    <Popover label="Calendar settings">
+      {() => (
+        <div className="space-y-2" aria-label="Calendar settings">
+          <SelectField
+            label="Show rows by"
+            value={config.dateColumn}
+            options={[{ value: '', label: dates.length ? 'Choose a date property' : 'No date properties' }, ...dates.map((c) => ({ value: c.id, label: c.name }))]}
+            onChange={(dateColumn) => onChange({ ...config, dateColumn })}
+          />
+          <p className="text-xs text-slate-500">Drag a row to another day to change its date. Created and edited times can't be changed.</p>
         </div>
       )}
     </Popover>
