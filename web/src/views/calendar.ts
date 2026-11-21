@@ -1,5 +1,5 @@
 /** Date math for the calendar view. Pure, so it's unit-tested. */
-import type { DateValue, Row } from '@lensiq/shared';
+import type { CalendarConfig, Column, DateValue, NotionColor, Row } from '@lensiq/shared';
 import { localIso, splitIso } from '../editing/editable';
 import { addDays, dayOf, toDay } from './query';
 
@@ -63,4 +63,28 @@ function shiftOne(iso: string, days: number): string {
 /** Moves a date (or range, keeping its length and any times) by whole days. */
 export function shiftDate(value: DateValue, days: number): DateValue {
   return { start: shiftOne(value.start, days), end: value.end ? shiftOne(value.end, days) : null };
+}
+
+/** Column types that can color calendar events (#55). */
+export const COLOR_BY_TYPES = new Set(['status', 'select']);
+
+/**
+ * The column that colors a calendar's events: the chosen status or select
+ * column; none when set to None; the first status column for views saved
+ * before the setting existed.
+ */
+export function colorColumn(columns: Column[], config: CalendarConfig): Column | undefined {
+  if (config.colorBy === undefined) return columns.find((c) => c.type === 'status');
+  if (!config.colorBy) return undefined;
+  const column = columns.find((c) => c.id === config.colorBy);
+  return column && COLOR_BY_TYPES.has(column.type) ? column : undefined;
+}
+
+/** A row's event color: the Notion color of its option in `column`, or null for no value. */
+export function eventColor(row: Row, column: Column | undefined): NotionColor | null {
+  if (!column) return null;
+  const v = row.cells[column.id];
+  if (v?.kind !== 'select' || !v.value) return null;
+  // Prefer the schema's current color (an option can be recolored in Notion).
+  return column.options?.find((o) => o.id === v.value!.id)?.color ?? v.value.color ?? null;
 }

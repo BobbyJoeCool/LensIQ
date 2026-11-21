@@ -116,7 +116,7 @@ describe('calendar views', () => {
   it('creates a calendar view on the first date column', async () => {
     const res = await createView({ databaseId: DS, name: 'Calendar', type: 'calendar' });
     expect(res.statusCode).toBe(201);
-    expect(res.json<View>().config).toMatchObject({ dateColumn: 'appl' });
+    expect(res.json<View>().config).toMatchObject({ dateColumn: 'appl', colorBy: 'stat' }); // colored by the first status column (#55)
   });
 });
 

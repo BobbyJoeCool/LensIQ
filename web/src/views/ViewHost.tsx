@@ -26,7 +26,7 @@ export function referencedColumns(view: View): string[] {
   }
   if (view.type === 'calendar') {
     const c = view.config as CalendarConfig;
-    return c.dateColumn ? [c.dateColumn] : [];
+    return [c.dateColumn, c.colorBy].filter((x): x is string => !!x);
   }
   if (view.type === 'chart') {
     const c = view.config as ChartConfig;
@@ -50,7 +50,7 @@ export function cleanConfig(view: View, columns: Column[]): ViewConfig {
   }
   if (view.type === 'calendar') {
     const c = base as CalendarConfig;
-    return { ...c, dateColumn: c.dateColumn && ok.has(c.dateColumn) ? c.dateColumn : null };
+    return { ...c, dateColumn: c.dateColumn && ok.has(c.dateColumn) ? c.dateColumn : null, ...(c.colorBy && !ok.has(c.colorBy) ? { colorBy: null } : {}) };
   }
   const c = base as ChartConfig;
   return {

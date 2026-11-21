@@ -1,6 +1,7 @@
 import type { BoardConfig, CalendarConfig, ChartConfig, ChartType, Column, Row, TableConfig } from '@lensiq/shared';
 import { Popover, SelectField, Toggle, smallButton } from '../../components/ui';
 import { columnKind } from '../query';
+import { COLOR_BY_TYPES, colorColumn } from '../calendar';
 
 /** Table: show or hide properties. The title always shows. */
 export function PropertiesMenu({ columns, config, onChange }: { columns: Column[]; config: TableConfig; onChange: (c: TableConfig) => void }) {
@@ -35,6 +36,7 @@ export function PropertiesMenu({ columns, config, onChange }: { columns: Column[
 /** Calendar: which date property places rows. */
 export function CalendarSettings({ columns, config, onChange }: { columns: Column[]; config: CalendarConfig; onChange: (c: CalendarConfig) => void }) {
   const dates = columns.filter((c) => c.type === 'date' || c.type === 'created_time' || c.type === 'last_edited_time');
+  const colorable = columns.filter((c) => COLOR_BY_TYPES.has(c.type));
   return (
     <Popover label="Calendar settings">
       {() => (
@@ -44,6 +46,12 @@ export function CalendarSettings({ columns, config, onChange }: { columns: Colum
             value={config.dateColumn}
             options={[{ value: '', label: dates.length ? 'Choose a date property' : 'No date properties' }, ...dates.map((c) => ({ value: c.id, label: c.name }))]}
             onChange={(dateColumn) => onChange({ ...config, dateColumn })}
+          />
+          <SelectField
+            label="Color by"
+            value={colorColumn(columns, config)?.id ?? null}
+            options={[{ value: '', label: 'None' }, ...colorable.map((c) => ({ value: c.id, label: c.name }))]}
+            onChange={(colorBy) => onChange({ ...config, colorBy })}
           />
           <p className="text-xs text-slate-500">Drag a row to another day to change its date. Created and edited times can't be changed.</p>
         </div>

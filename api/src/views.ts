@@ -26,7 +26,9 @@ export function defaultConfig(type: ViewType, schema: Schema): ViewConfig {
   const base = { filters: [], filterMode: 'and' as const, sorts: [] };
   const firstOf = (...types: string[]) => schema.columns.find((c) => types.includes(c.type))?.id ?? null;
   if (type === 'table') return { ...base, hidden: [] } satisfies TableConfig;
-  if (type === 'calendar') return { ...base, dateColumn: firstOf('date', 'created_time', 'last_edited_time') } satisfies CalendarConfig;
+  if (type === 'calendar') {
+    return { ...base, dateColumn: firstOf('date', 'created_time', 'last_edited_time'), colorBy: firstOf('status') } satisfies CalendarConfig;
+  }
   if (type === 'board') {
     return { ...base, groupBy: firstOf('status', 'select'), cardFields: [], hideEmptyGroups: false } satisfies BoardConfig;
   }

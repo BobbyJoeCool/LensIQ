@@ -39,7 +39,7 @@ function defaultConfig(type: ViewType, columns: Column[]): ViewConfig {
   const first = (...t: string[]) => columns.find((c) => t.includes(c.type))?.id ?? null;
   if (type === 'table') return { ...base, hidden: [] };
   if (type === 'board') return { ...base, groupBy: first('status', 'select'), cardFields: [], hideEmptyGroups: false };
-  if (type === 'calendar') return { ...base, dateColumn: first('date') };
+  if (type === 'calendar') return { ...base, dateColumn: first('date'), colorBy: first('status') };
   return { ...base, chartType: 'bar', x: first('status', 'select', 'date'), dateGrouping: 'month', aggregation: 'count', y: null, splitBy: null, horizontal: false, stacked: false, cumulative: false, sortBy: 'x', hideEmpty: false };
 }
 

@@ -191,11 +191,11 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status' }),
     view('v-jobs-salary', JOBS_ID, 'Average salary', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'avg', y: 'salary', filters: [{ id: 'f1', columnId: 'status', op: 'none_of', value: ['st-rejected', 'st-wish'] }] }),
     view('v-jobs-next', JOBS_ID, 'Next step this week', 'table', { ...base, filters: [{ id: 'f2', columnId: 'next', op: 'next_days', value: 7 }], sorts: [{ columnId: 'next', direction: 'asc' }], hidden: ['posting', 'tags', 'contacts', 'salary', 'days', 'remote'] }),
-    view('v-jobs-cal', JOBS_ID, 'Next steps', 'calendar', { ...base, dateColumn: 'next' }),
+    view('v-jobs-cal', JOBS_ID, 'Next steps', 'calendar', { ...base, dateColumn: 'next', colorBy: 'status' }),
     view('v-contacts', CONTACTS_ID, 'Contacts', 'table', { ...base, hidden: [] }),
     view('v-bills-table', BILLS_ID, 'All bills', 'table', { ...base, sorts: [{ columnId: 'due', direction: 'asc' }], hidden: [] }),
     view('v-bills-due', BILLS_ID, 'Due in 7 days', 'table', { ...base, filters: [{ id: 'f3', columnId: 'due', op: 'next_days', value: 7 }, { id: 'f4', columnId: 'paid', op: 'unchecked' }], sorts: [{ columnId: 'due', direction: 'asc' }], hidden: ['autopay'] }),
-    view('v-bills-cal', BILLS_ID, 'Calendar', 'calendar', { ...base, dateColumn: 'due' }),
+    view('v-bills-cal', BILLS_ID, 'Calendar', 'calendar', { ...base, dateColumn: 'due', colorBy: 'category' }),
     view('v-bills-cat', BILLS_ID, 'Spend by category', 'chart', { ...chartBase, chartType: 'bar', x: 'category', aggregation: 'sum', y: 'amount', sortBy: 'value', horizontal: true }),
     view('v-bills-total', BILLS_ID, 'Unpaid total', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'sum', y: 'amount', filters: [{ id: 'f5', columnId: 'paid', op: 'unchecked' }] }),
   ];

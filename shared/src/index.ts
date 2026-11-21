@@ -306,6 +306,12 @@ export interface ChartConfig extends ViewConfigBase {
 export interface CalendarConfig extends ViewConfigBase {
   /** A date column. Null until chosen. */
   dateColumn: string | null;
+  /**
+   * A status or select column whose option color colors each event (#55).
+   * Null shows every event in the default color. Missing (views saved before
+   * v1.2.0) means the first status column, if any.
+   */
+  colorBy?: string | null;
 }
 
 export type ViewConfig = TableConfig | BoardConfig | ChartConfig | CalendarConfig;
