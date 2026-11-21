@@ -188,7 +188,7 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     view('v-jobs-table', JOBS_ID, 'All applications', 'table', { ...base, sorts: [{ columnId: 'applied', direction: 'desc' }], hidden: ['posting'] }),
     view('v-jobs-board', JOBS_ID, 'Pipeline', 'board', { ...base, groupBy: 'status', cardFields: ['role', 'next'], hideEmptyGroups: false }),
     view('v-jobs-weekly', JOBS_ID, 'Applications per week', 'chart', { ...chartBase, chartType: 'bar', x: 'applied', dateGrouping: 'week', splitBy: 'remote', stacked: true, showValues: 'value' }),
-    view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status', showValues: 'value' }),
+    view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status', showValues: 'value', showTotal: true }),
     view('v-jobs-salary', JOBS_ID, 'Average salary', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'avg', y: 'salary', filters: [{ id: 'f1', columnId: 'status', op: 'none_of', value: ['st-rejected', 'st-wish'] }] }),
     view('v-jobs-next', JOBS_ID, 'Next step this week', 'table', { ...base, filters: [{ id: 'f2', columnId: 'next', op: 'next_days', value: 7 }], sorts: [{ columnId: 'next', direction: 'asc' }], hidden: ['posting', 'tags', 'contacts', 'salary', 'days', 'remote'] }),
     view('v-jobs-cal', JOBS_ID, 'Next steps', 'calendar', { ...base, dateColumn: 'next', colorBy: 'status' }),

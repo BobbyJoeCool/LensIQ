@@ -307,6 +307,11 @@ export interface ChartConfig extends ViewConfigBase {
    * and donut charts. Missing means off.
    */
   showValues?: 'off' | 'value' | 'percent' | 'both';
+  /**
+   * A total (#52): an extra Total bar on bar charts, the total in the middle
+   * of a donut, and in the header of line and area charts. Count and sum only.
+   */
+  showTotal?: boolean;
 }
 
 export interface CalendarConfig extends ViewConfigBase {

@@ -2,7 +2,7 @@ import type { BoardConfig, CalendarConfig, ChartConfig, ChartType, Column, Row, 
 import { Popover, SelectField, Toggle, smallButton } from '../../components/ui';
 import { columnKind } from '../query';
 import { COLOR_BY_TYPES, colorColumn } from '../calendar';
-import { effectiveLabels, labelModes, type ValueLabels } from '../chart';
+import { effectiveLabels, isAdditive, labelModes, type ValueLabels } from '../chart';
 
 const VALUE_LABELS: Record<ValueLabels, string> = { off: 'Off', value: 'Value', percent: 'Percent', both: 'Value and percent' };
 
@@ -209,6 +209,7 @@ export function ChartSettings({ columns, rows, config, onChange }: { columns: Co
             />
           )}
           <div className="col-span-2 grid grid-cols-2 gap-x-3">
+            {t !== 'stat' && isAdditive(config) && <Toggle label={t === 'bar' ? 'Total bar' : 'Show total'} checked={!!config.showTotal} onChange={(showTotal) => set({ showTotal })} />}
             {t === 'bar' && <Toggle label="Horizontal" checked={config.horizontal} onChange={(horizontal) => set({ horizontal })} />}
             {(t === 'bar' || t === 'area') && config.splitBy && <Toggle label="Stacked" checked={config.stacked} onChange={(stacked) => set({ stacked })} />}
             {(t === 'line' || t === 'area') && xIsDate && <Toggle label="Cumulative" checked={config.cumulative} onChange={(cumulative) => set({ cumulative })} />}

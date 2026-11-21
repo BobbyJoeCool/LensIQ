@@ -19,7 +19,7 @@ import {
 } from 'recharts';
 import type { ChartConfig, Column, Row } from '@lensiq/shared';
 import { formatNumber } from '../../format';
-import { chartData, effectiveLabels, labelBase, valueLabel, type ChartResult, type ValueLabels } from '../chart';
+import { TOTAL_KEY, chartData, effectiveLabels, labelBase, valueLabel, type ChartResult, type ValueLabels } from '../chart';
 
 interface Props {
   columns: Column[];
@@ -72,12 +72,24 @@ export function ChartView({ columns, rows, config, compact }: Props) {
   }
 
   const labels: Labels = { mode: effectiveLabels(config), base: labelBase(result), fmt };
+  const showTotal = !!config.showTotal && result.total !== null;
   return (
     <figure className={`flex flex-col rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 ${fill}`}>
+      {showTotal && (config.chartType === 'line' || config.chartType === 'area') && (
+        <p className="mb-1 text-sm text-slate-600 dark:text-slate-300" data-testid="chart-total">
+          Total: <span className="font-semibold tabular-nums text-slate-900 dark:text-slate-100">{fmt(result.total!)}</span>
+        </p>
+      )}
       <div className={`relative ${compact ? 'h-60 md:h-auto md:min-h-40 md:flex-1' : 'h-[360px]'}`} role="img" aria-label={describe(result, config)}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart(result, config, fmt, labels)}
         </ResponsiveContainer>
+        {showTotal && config.chartType === 'pie' && (
+          <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center" data-testid="chart-total">
+            <span className="text-2xl font-semibold tabular-nums">{fmt(result.total!)}</span>
+            <span className="text-xs text-slate-500">Total</span>
+          </div>
+        )}
       </div>
       {config.chartType === 'pie' && <PieLegend result={result} fmt={fmt} />}
       <div className="mt-2 flex justify-end">
@@ -96,12 +108,13 @@ function describe(result: Extract<ChartResult, { kind: 'series' }>, config: Char
 }
 
 /** A value label inside a stacked segment, or at the end of a bar; hidden when it doesn't fit (#56). */
-function barLabel(labels: Labels, inside: boolean, horizontal: boolean) {
+function barLabel(labels: Labels, inside: boolean, horizontal: boolean, keys: string[]) {
   return function BarValueLabel(props: { x?: number | string; y?: number | string; width?: number | string; height?: number | string; value?: unknown; index?: number }) {
     const [x, y, w, h] = [Number(props.x), Number(props.y), Number(props.width), Number(props.height)];
     const value = Number(props.value);
     if (!Number.isFinite(value) || (inside && value === 0)) return null;
-    const text = valueLabel(value, labels.mode, labels.base, labels.fmt);
+    const isTotal = keys[props.index ?? -1] === TOTAL_KEY;
+    const text = valueLabel(value, labels.mode, labels.base, labels.fmt, isTotal);
     if (inside && (textWidth(text) + 4 > w || h < 14)) return null;
     const pos = inside
       ? { x: x + w / 2, y: y + h / 2, textAnchor: 'middle' as const, dominantBaseline: 'central' as const }
@@ -201,11 +214,21 @@ function renderChart(result: Extract<ChartResult, { kind: 'series' }>, config: C
   // Bar
   const horizontal = config.horizontal;
   const singleColored = !multi; // one series: each bar wears its category's (option's) color
+  const keys = data.map((p) => p.key);
+  const hasTotal = keys.includes(TOTAL_KEY);
   const labeled = labels.mode !== 'off';
   // Horizontal bars put labels past the bar's end: leave room for the longest one.
   const endLabelRoom = labeled && horizontal && !(config.stacked && multi)
-    ? Math.min(180, Math.max(...data.flatMap((p) => series.map((s) => textWidth(valueLabel(Number(p[s.key]), labels.mode, labels.base, labels.fmt))))) + 12)
+    ? Math.min(180, Math.max(...data.flatMap((p) => series.map((s) => textWidth(valueLabel(Number(p[s.key]), labels.mode, labels.base, labels.fmt, p.key === TOTAL_KEY))))) + 12)
     : 12;
+  const totalTick = (props: { x?: number | string; y?: number | string; payload?: { value?: string; index?: number }; textAnchor?: string }) => {
+    const isTotal = keys[props.payload?.index ?? -1] === TOTAL_KEY;
+    return (
+      <text x={Number(props.x)} y={Number(props.y)} dy={horizontal ? 4 : 12} textAnchor={horizontal ? 'end' : 'middle'} fill="var(--chart-axis)" fontSize={12} fontWeight={isTotal ? 700 : 400}>
+        {props.payload?.value}
+      </text>
+    );
+  };
   return (
     <BarChart
       data={data}
@@ -218,11 +241,11 @@ function renderChart(result: Extract<ChartResult, { kind: 'series' }>, config: C
       {horizontal ? (
         <>
           <XAxis type="number" tick={axisTick} tickLine={false} axisLine={false} tickFormatter={(v) => fmt(Number(v))} allowDecimals={allowDecimals} />
-          <YAxis type="category" dataKey="label" tick={axisTick} tickLine={false} axisLine={{ stroke: 'var(--chart-grid)' }} width={110} />
+          <YAxis type="category" dataKey="label" tick={hasTotal ? totalTick : axisTick} interval={hasTotal ? 0 : undefined} tickLine={false} axisLine={{ stroke: 'var(--chart-grid)' }} width={110} />
         </>
       ) : (
         <>
-          <XAxis dataKey="label" tick={axisTick} tickLine={false} axisLine={{ stroke: 'var(--chart-grid)' }} interval="preserveStartEnd" minTickGap={8} />
+          <XAxis dataKey="label" tick={hasTotal ? totalTick : axisTick} tickLine={false} axisLine={{ stroke: 'var(--chart-grid)' }} interval={hasTotal && !result.xIsTime ? 0 : 'preserveStartEnd'} minTickGap={8} />
           <YAxis tick={axisTick} tickLine={false} axisLine={false} tickFormatter={(v) => fmt(Number(v))} width={64} allowDecimals={allowDecimals} />
         </>
       )}
@@ -233,8 +256,8 @@ function renderChart(result: Extract<ChartResult, { kind: 'series' }>, config: C
         const radius: [number, number, number, number] = last ? (horizontal ? [0, 4, 4, 0] : [4, 4, 0, 0]) : [0, 0, 0, 0];
         return (
           <Bar key={s.key} dataKey={s.key} name={s.label} fill={s.color} radius={radius} stackId={config.stacked ? 'a' : undefined} stroke="var(--chart-surface)" strokeWidth={config.stacked ? 1 : 0} isAnimationActive={false}>
-            {singleColored && !result.xIsTime && data.map((p) => <PieCell key={p.key} fill={categoryColors.get(p.key)} />)}
-            {labeled && <LabelList dataKey={s.key} content={barLabel(labels, !!config.stacked && multi, horizontal)} />}
+            {singleColored && (!result.xIsTime || keys.includes(TOTAL_KEY)) && data.map((p) => <PieCell key={p.key} fill={result.xIsTime && p.key !== TOTAL_KEY ? s.color : categoryColors.get(p.key)} />)}
+            {labeled && <LabelList dataKey={s.key} content={barLabel(labels, !!config.stacked && multi, horizontal, keys)} />}
           </Bar>
         );
       })}

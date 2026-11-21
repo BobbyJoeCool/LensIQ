@@ -141,6 +141,35 @@ test('chart value labels show without hovering, as value, percent or both (#56)'
   await expect(labels).toHaveText(['50%', '50%']);
 });
 
+test('chart totals: a Total bar, the total in the donut, and in the line chart header (#52)', async ({ page }) => {
+  await addJobSearch(page);
+  await addView(page, 'Chart');
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByLabel('Total bar').click();
+  await expect(page.getByLabel('Total bar')).toBeChecked();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Show data' }).click();
+  await expect(page.getByRole('table', { name: 'Chart data' }).getByRole('row', { name: /Total/ })).toContainText('2');
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('radio', { name: 'Donut' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('chart-total')).toContainText('2');
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('radio', { name: 'Line' }).click();
+  await page.getByRole('combobox', { name: 'X-axis' }).selectOption({ label: 'Applied' });
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('chart-total')).toHaveText('Total: 2');
+
+  // Average has no total, so the option goes away.
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('combobox', { name: 'Y-axis' }).selectOption('avg');
+  await expect(page.getByLabel('Show total')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('chart-total')).toHaveCount(0);
+});
+
 test('rename, duplicate and delete views', async ({ page }) => {
   await addJobSearch(page);
   const tabs = page.getByRole('navigation', { name: 'Views' });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChartConfig } from '@lensiq/shared';
-import { assignColors, bucketOf, chartData, effectiveLabels, formatPercent, labelBase, labelModes, seriesColor, valueLabel } from './chart';
+import { TOTAL_COLOR, TOTAL_KEY, assignColors, bucketOf, chartData, effectiveLabels, formatPercent, labelBase, labelModes, seriesColor, valueLabel } from './chart';
 import { columns, rows } from './fixtures';
 
 const base: ChartConfig = {
@@ -166,5 +166,50 @@ describe('value labels (#56)', () => {
     expect(formatPercent(1, 400)).toBe('<1%');
     expect(formatPercent(0, 10)).toBe('0%');
     expect(formatPercent(5, 0)).toBe('0%');
+  });
+});
+
+describe('chart totals (#52)', () => {
+  const total = (r: ReturnType<typeof series>) => r.data.find((p) => p.key === TOTAL_KEY);
+
+  it('adds a Total bar last, in a neutral color, even when sorted by value', () => {
+    const r = series({ showTotal: true, sortBy: 'value' });
+    expect(r.data.at(-1)).toMatchObject({ key: TOTAL_KEY, label: 'Total', value: 4 });
+    expect(r.categoryColors.get(TOTAL_KEY)).toBe(TOTAL_COLOR);
+    expect(r.total).toBe(4);
+    expect(total(series({}))).toBeUndefined(); // off by default
+  });
+
+  it('counts rows, not bars: a row with two tags counts once', () => {
+    const r = series({ x: 'tags', showTotal: true });
+    expect(total(r)!.value).toBe(4);
+    expect(r.total).toBe(4);
+  });
+
+  it('splits the Total bar like the other bars', () => {
+    expect(total(series({ splitBy: 'rem', stacked: true, showTotal: true }))).toMatchObject({ true: 2, false: 2 });
+  });
+
+  it('sums a number column, and has no total for average, min or max', () => {
+    expect(series({ aggregation: 'sum', y: 'sal', showTotal: true }).total).toBe(425000);
+    const avg = series({ aggregation: 'avg', y: 'sal', showTotal: true });
+    expect(avg.total).toBeNull();
+    expect(total(avg)).toBeUndefined();
+  });
+
+  it('leaves out rows that are not on the chart, like undated rows on a date axis', () => {
+    expect(total(series({ x: 'appl', showTotal: true }))!.value).toBe(3);
+  });
+
+  it('donut and line charts get the total without an extra slice or point', () => {
+    const pie = series({ chartType: 'pie', showTotal: true });
+    expect(pie.total).toBe(4);
+    expect(total(pie)).toBeUndefined();
+    expect(total(series({ chartType: 'line', x: 'appl', showTotal: true }))).toBeUndefined();
+  });
+
+  it('percent labels ignore the Total bar, which shows just its value', () => {
+    expect(labelBase(series({ showTotal: true }))).toBe(4);
+    expect(valueLabel(4, 'both', 4, String, true)).toBe('4');
   });
 });

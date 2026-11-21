@@ -27,6 +27,7 @@ body {
   --chart-grid: #e7e5e0;
   --chart-axis: #52514e;
   --chart-surface: #ffffff;
+  --chart-total: #44403c;
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -42,5 +43,6 @@ body {
     --chart-grid: #2e2e2c;
     --chart-axis: #c3c2b7;
     --chart-surface: #0f172a;
+    --chart-total: #a8a29e;
   }
 }
