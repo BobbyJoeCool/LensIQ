@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ChartConfig } from '@lensiq/shared';
-import { assignColors, bucketOf, chartData, seriesColor } from './chart';
+import { assignColors, bucketOf, chartData, effectiveLabels, formatPercent, labelBase, labelModes, seriesColor, valueLabel } from './chart';
 import { columns, rows } from './fixtures';
 
 const base: ChartConfig = {
@@ -126,5 +126,45 @@ describe('bucketOf', () => {
     expect(bucketOf('2026-11-22', 'week')).toBe('2026-11-16'); // Sunday -> previous Monday
     expect(bucketOf('2026-11-16', 'week')).toBe('2026-11-16');
     expect(bucketOf('2026-11-16', 'year')).toBe('2026');
+  });
+});
+
+describe('value labels (#56)', () => {
+  const fmt = (n: number) => String(n);
+
+  it('offers percent only for count and sum on bar and donut charts', () => {
+    expect(labelModes({ ...base })).toEqual(['off', 'value', 'percent', 'both']);
+    expect(labelModes({ ...base, chartType: 'pie', aggregation: 'sum', y: 'sal' })).toEqual(['off', 'value', 'percent', 'both']);
+    expect(labelModes({ ...base, aggregation: 'avg', y: 'sal' })).toEqual(['off', 'value']);
+    expect(labelModes({ ...base, chartType: 'line' })).toEqual(['off', 'value']);
+    expect(labelModes({ ...base, chartType: 'stat' })).toEqual(['off']);
+  });
+
+  it('falls back to plain values when a saved mode no longer applies, and is off by default', () => {
+    expect(effectiveLabels(base)).toBe('off');
+    expect(effectiveLabels({ ...base, showValues: 'both' })).toBe('both');
+    expect(effectiveLabels({ ...base, chartType: 'line', showValues: 'percent' })).toBe('value');
+  });
+
+  it('percent is out of the whole chart, so the labels add up to 100%', () => {
+    expect(labelBase(series({}))).toBe(4);
+    expect(labelBase(series({ splitBy: 'rem', stacked: true }))).toBe(4); // every segment of every bar
+    expect(labelBase(series({ x: 'tags' }))).toBe(5); // a row with two tags is in two bars
+  });
+
+  it('writes the value, the percent, or both', () => {
+    expect(valueLabel(2, 'value', 4, fmt)).toBe('2');
+    expect(valueLabel(2, 'percent', 4, fmt)).toBe('50%');
+    expect(valueLabel(1, 'both', 3, fmt)).toBe('1 (33%)');
+    expect(valueLabel(2, 'off', 4, fmt)).toBe('');
+    expect(valueLabel(1250.5, 'value', 0, (n) => `$${n.toFixed(2)}`)).toBe('$1250.50');
+  });
+
+  it('rounds percents, shows slivers as <1% and never divides by zero', () => {
+    expect(formatPercent(1, 3)).toBe('33%');
+    expect(formatPercent(2, 3)).toBe('67%');
+    expect(formatPercent(1, 400)).toBe('<1%');
+    expect(formatPercent(0, 10)).toBe('0%');
+    expect(formatPercent(5, 0)).toBe('0%');
   });
 });

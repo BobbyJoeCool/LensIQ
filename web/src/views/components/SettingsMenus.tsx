@@ -2,6 +2,9 @@ import type { BoardConfig, CalendarConfig, ChartConfig, ChartType, Column, Row, 
 import { Popover, SelectField, Toggle, smallButton } from '../../components/ui';
 import { columnKind } from '../query';
 import { COLOR_BY_TYPES, colorColumn } from '../calendar';
+import { effectiveLabels, labelModes, type ValueLabels } from '../chart';
+
+const VALUE_LABELS: Record<ValueLabels, string> = { off: 'Off', value: 'Value', percent: 'Percent', both: 'Value and percent' };
 
 /** Table: show or hide properties. The title always shows. */
 export function PropertiesMenu({ columns, config, onChange }: { columns: Column[]; config: TableConfig; onChange: (c: TableConfig) => void }) {
@@ -195,6 +198,14 @@ export function ChartSettings({ columns, rows, config, onChange }: { columns: Co
                 { value: 'value', label: 'Largest first' },
               ]}
               onChange={(v) => set({ sortBy: v ?? 'x' })}
+            />
+          )}
+          {t !== 'stat' && (
+            <SelectField
+              label="Show values"
+              value={effectiveLabels(config)}
+              options={labelModes(config).map((m) => ({ value: m, label: VALUE_LABELS[m] }))}
+              onChange={(v) => set({ showValues: v ?? 'off' })}
             />
           )}
           <div className="col-span-2 grid grid-cols-2 gap-x-3">

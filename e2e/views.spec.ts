@@ -117,6 +117,30 @@ test('chart views: bar by status with a data table, then a number tile', async (
   await expect(page.getByTestId('stat-value')).toHaveText('$145,000.00');
 });
 
+test('chart value labels show without hovering, as value, percent or both (#56)', async ({ page }) => {
+  await addJobSearch(page);
+  await addView(page, 'Chart');
+  const labels = page.locator('.chart-value-label');
+  await expect(page.locator('.recharts-surface')).toBeVisible();
+  await expect(labels).toHaveCount(0); // off by default
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('combobox', { name: 'Show values' }).selectOption({ label: 'Value and percent' });
+  await page.keyboard.press('Escape');
+  // Applied 1 and Interviewing 1 of 2 rows.
+  await expect(labels).toHaveText(['1 (50%)', '1 (50%)']);
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('radio', { name: 'Donut' }).click();
+  await page.getByRole('combobox', { name: 'Show values' }).selectOption({ label: 'Percent' });
+  await page.keyboard.press('Escape');
+  await expect(labels).toHaveText(['50%', '50%']);
+
+  await page.waitForTimeout(700); // settings save after a short pause
+  await page.reload();
+  await expect(labels).toHaveText(['50%', '50%']);
+});
+
 test('rename, duplicate and delete views', async ({ page }) => {
   await addJobSearch(page);
   const tabs = page.getByRole('navigation', { name: 'Views' });

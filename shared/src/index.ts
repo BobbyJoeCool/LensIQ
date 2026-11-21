@@ -301,6 +301,12 @@ export interface ChartConfig extends ViewConfigBase {
   sortBy: 'x' | 'value';
   /** Bar/pie: hide categories with no rows. */
   hideEmpty: boolean;
+  /**
+   * Values written on the chart without hovering (#56). Percent is each
+   * value's share of the whole chart; it's offered for count and sum on bar
+   * and donut charts. Missing means off.
+   */
+  showValues?: 'off' | 'value' | 'percent' | 'both';
 }
 
 export interface CalendarConfig extends ViewConfigBase {

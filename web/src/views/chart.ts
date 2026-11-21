@@ -95,6 +95,9 @@ export function aggregationLabel(config: ChartConfig, columns: Column[]): string
   return `${AGG_LABEL[config.aggregation]} of ${y?.name ?? '?'}`;
 }
 
+/** Count and sum add up across categories; average, min and max don't. */
+export const isAdditive = (config: ChartConfig) => config.aggregation === 'count' || config.aggregation === 'sum';
+
 /** Running aggregate for one bucket. */
 class Acc {
   n = 0;
@@ -110,6 +113,13 @@ class Acc {
     this.sum += v;
     this.min = Math.min(this.min, v);
     this.max = Math.max(this.max, v);
+  }
+  merge(a: Acc) {
+    this.rows += a.rows;
+    this.n += a.n;
+    this.sum += a.sum;
+    this.min = Math.min(this.min, a.min);
+    this.max = Math.max(this.max, a.max);
   }
   value(agg: ChartConfig['aggregation']): number {
     switch (agg) {
@@ -303,12 +313,7 @@ export function chartData(rows: Row[], columns: Column[], config: ChartConfig): 
         for (const k of folded) {
           const a = row.get(k);
           if (!a) continue;
-          // Merge accumulators.
-          other.rows += a.rows;
-          other.n += a.n;
-          other.sum += a.sum;
-          other.min = Math.min(other.min, a.min);
-          other.max = Math.max(other.max, a.max);
+          other.merge(a);
           row.delete(k);
         }
         if (other.rows) row.set(OTHER_KEY, other);
@@ -374,4 +379,43 @@ export function chartData(rows: Row[], columns: Column[], config: ChartConfig): 
     categoryColors,
     xIsTime,
   };
+}
+
+export type ValueLabels = NonNullable<ChartConfig['showValues']>;
+
+/**
+ * Which value labels a chart can show (#56): percent only makes sense where
+ * values add up to a whole (count or sum, on bar and donut charts).
+ */
+export function labelModes(config: ChartConfig): ValueLabels[] {
+  if (config.chartType === 'stat') return ['off'];
+  const percent = isAdditive(config) && (config.chartType === 'bar' || config.chartType === 'pie');
+  return percent ? ['off', 'value', 'percent', 'both'] : ['off', 'value'];
+}
+
+/** The label mode actually drawn: a saved mode the chart can't show falls back to plain values. */
+export function effectiveLabels(config: ChartConfig): ValueLabels {
+  const mode = config.showValues ?? 'off';
+  return labelModes(config).includes(mode) ? mode : mode === 'off' ? 'off' : 'value';
+}
+
+/** The whole the percent labels are out of: every value on the chart. */
+export function labelBase(result: Extract<ChartResult, { kind: 'series' }>): number {
+  return result.data
+    .reduce((sum, p) => sum + result.series.reduce((s, ser) => s + (Number(p[ser.key]) || 0), 0), 0);
+}
+
+/** "35%", or "<1%" for a sliver, of `base`. */
+export function formatPercent(value: number, base: number): string {
+  if (!base || !value) return '0%';
+  const pct = (value / base) * 100;
+  return pct > 0 && pct < 0.5 ? '<1%' : `${Math.round(pct)}%`;
+}
+
+/** Label text for one value (#56): "6", "35%" or "6 (35%)". */
+export function valueLabel(value: number, mode: ValueLabels, base: number, fmt: (n: number) => string): string {
+  if (mode === 'off') return '';
+  if (mode === 'value') return fmt(value);
+  if (mode === 'percent') return formatPercent(value, base);
+  return `${fmt(value)} (${formatPercent(value, base)})`;
 }

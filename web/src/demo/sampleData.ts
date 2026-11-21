@@ -187,8 +187,8 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
   const views: View[] = [
     view('v-jobs-table', JOBS_ID, 'All applications', 'table', { ...base, sorts: [{ columnId: 'applied', direction: 'desc' }], hidden: ['posting'] }),
     view('v-jobs-board', JOBS_ID, 'Pipeline', 'board', { ...base, groupBy: 'status', cardFields: ['role', 'next'], hideEmptyGroups: false }),
-    view('v-jobs-weekly', JOBS_ID, 'Applications per week', 'chart', { ...chartBase, chartType: 'bar', x: 'applied', dateGrouping: 'week', splitBy: 'remote', stacked: true }),
-    view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status' }),
+    view('v-jobs-weekly', JOBS_ID, 'Applications per week', 'chart', { ...chartBase, chartType: 'bar', x: 'applied', dateGrouping: 'week', splitBy: 'remote', stacked: true, showValues: 'value' }),
+    view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status', showValues: 'value' }),
     view('v-jobs-salary', JOBS_ID, 'Average salary', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'avg', y: 'salary', filters: [{ id: 'f1', columnId: 'status', op: 'none_of', value: ['st-rejected', 'st-wish'] }] }),
     view('v-jobs-next', JOBS_ID, 'Next step this week', 'table', { ...base, filters: [{ id: 'f2', columnId: 'next', op: 'next_days', value: 7 }], sorts: [{ columnId: 'next', direction: 'asc' }], hidden: ['posting', 'tags', 'contacts', 'salary', 'days', 'remote'] }),
     view('v-jobs-cal', JOBS_ID, 'Next steps', 'calendar', { ...base, dateColumn: 'next', colorBy: 'status' }),
@@ -196,7 +196,7 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     view('v-bills-table', BILLS_ID, 'All bills', 'table', { ...base, sorts: [{ columnId: 'due', direction: 'asc' }], hidden: [] }),
     view('v-bills-due', BILLS_ID, 'Due in 7 days', 'table', { ...base, filters: [{ id: 'f3', columnId: 'due', op: 'next_days', value: 7 }, { id: 'f4', columnId: 'paid', op: 'unchecked' }], sorts: [{ columnId: 'due', direction: 'asc' }], hidden: ['autopay'] }),
     view('v-bills-cal', BILLS_ID, 'Calendar', 'calendar', { ...base, dateColumn: 'due', colorBy: 'category' }),
-    view('v-bills-cat', BILLS_ID, 'Spend by category', 'chart', { ...chartBase, chartType: 'bar', x: 'category', aggregation: 'sum', y: 'amount', sortBy: 'value', horizontal: true }),
+    view('v-bills-cat', BILLS_ID, 'Spend by category', 'chart', { ...chartBase, chartType: 'bar', x: 'category', aggregation: 'sum', y: 'amount', sortBy: 'value', horizontal: true, showValues: 'both' }),
     view('v-bills-total', BILLS_ID, 'Unpaid total', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'sum', y: 'amount', filters: [{ id: 'f5', columnId: 'paid', op: 'unchecked' }] }),
   ];
   const dashboards: Dashboard[] = [
