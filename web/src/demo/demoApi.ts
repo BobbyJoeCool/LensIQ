@@ -209,12 +209,12 @@ export class DemoServer {
     }
 
     if (a === 'dashboards') {
-      if (!b && method === 'GET') return ok(this.dashboards);
+      if (!b && method === 'GET') return ok([...this.dashboards].sort((x, y) => x.position - y.position));
       if (!b && method === 'POST') {
         const name = String((body as { name?: string }).name ?? '').trim();
         if (!name) throw new HttpError(400, 'bad_name', 'A dashboard needs a name.');
         const now = new Date().toISOString();
-        const dash: Dashboard = { id: this.id('dash'), name, tiles: [], createdAt: now, updatedAt: now };
+        const dash: Dashboard = { id: this.id('dash'), name, tiles: [], position: this.dashboards.length, createdAt: now, updatedAt: now };
         this.dashboards.push(dash);
         return ok(dash, 201);
       }
@@ -222,14 +222,20 @@ export class DemoServer {
       if (!dash) throw new HttpError(404, 'dashboard_not_found', 'That dashboard no longer exists.');
       if (method === 'GET') return ok(dash);
       if (method === 'PATCH') {
-        const req = body as { name?: string; tiles?: Dashboard['tiles'] };
+        const req = body as { name?: string; tiles?: Dashboard['tiles']; position?: number };
         if (req.name !== undefined) dash.name = req.name.trim() || dash.name;
+        if (req.position !== undefined) {
+          const others = this.dashboards.filter((x) => x.id !== dash.id).sort((x, y) => x.position - y.position);
+          others.splice(Math.max(0, Math.min(req.position, others.length)), 0, dash);
+          others.forEach((x, i) => (x.position = i));
+        }
         if (req.tiles) dash.tiles = req.tiles.filter((t) => this.views.some((v) => v.id === t.viewId)).map((t) => ({ ...t, id: t.id || this.id('tile') }));
         dash.updatedAt = new Date().toISOString();
         return ok(dash);
       }
       if (method === 'DELETE') {
         this.dashboards = this.dashboards.filter((x) => x.id !== dash.id);
+        this.dashboards.forEach((x, i) => (x.position = i));
         return ok(null, 204);
       }
     }
@@ -255,7 +261,7 @@ export class DemoServer {
       }
       for (const dsh of file.dashboards) {
         const now = new Date().toISOString();
-        this.dashboards.push({ id: this.id('dash'), name: dsh.name, tiles: dsh.tiles.flatMap((t) => (map.has(t.viewId) ? [{ ...t, id: this.id('tile'), viewId: map.get(t.viewId)! }] : [])), createdAt: now, updatedAt: now });
+        this.dashboards.push({ id: this.id('dash'), name: dsh.name, position: this.dashboards.length, tiles: dsh.tiles.flatMap((t) => (map.has(t.viewId) ? [{ ...t, id: this.id('tile'), viewId: map.get(t.viewId)! }] : [])), createdAt: now, updatedAt: now });
         result.dashboardsCreated++;
       }
       return ok(result as unknown as Json);

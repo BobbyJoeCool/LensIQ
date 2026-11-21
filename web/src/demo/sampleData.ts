@@ -213,6 +213,7 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     {
       id: 'd-jobs',
       name: 'Job Search',
+      position: 0,
       tiles: [
         { id: 't1', viewId: 'v-jobs-board', size: 'full' },
         { id: 't2', viewId: 'v-jobs-weekly', size: 'large' },
@@ -226,6 +227,7 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     {
       id: 'd-friday',
       name: 'Friday Review',
+      position: 1,
       tiles: [
         { id: 't6', viewId: 'v-bills-due', size: 'large' },
         { id: 't7', viewId: 'v-bills-total', size: 'small' },

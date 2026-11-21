@@ -37,6 +37,17 @@ function useRoute(): Route {
   return route;
 }
 
+/** Where `#/` goes (#50): the first dashboard, else the first database, else the add form. */
+export function homeRoute(dashboards: { id: string }[], databases: { id: string }[]): Route {
+  if (dashboards[0]) return { page: 'dash', id: dashboards[0].id };
+  if (databases[0]) return { page: 'db', id: databases[0].id };
+  return { page: 'add' };
+}
+
+const navHeading = 'hidden px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 md:block';
+const moveButton =
+  'hidden min-h-8 min-w-7 shrink-0 items-center justify-center rounded text-xs text-slate-400 hover:bg-slate-200 hover:text-slate-700 disabled:invisible md:group-hover:flex md:group-focus-within:flex dark:hover:bg-slate-700 dark:hover:text-slate-200';
+
 const navLink = (active: boolean) =>
   `flex min-h-11 shrink-0 items-center rounded-lg px-3 text-sm font-medium whitespace-nowrap ${
     active
@@ -61,45 +72,39 @@ export function App() {
     },
   });
 
-  // With no databases yet, home is the add form; with some, open the first.
+  const moveDashboard = useMutation({
+    mutationFn: ({ id, position }: { id: string; position: number }) => api.updateDashboard(id, { position }),
+    onSettled: () => void queryClient.invalidateQueries({ queryKey: ['dashboards'] }),
+  });
+
+  // Home (#50) opens the first dashboard; with none, the first database; with no databases yet, the add form.
   const list = databases.data ?? [];
-  const effective: Route =
-    route.page === 'home' && databases.isSuccess
-      ? list[0]
-        ? { page: 'db', id: list[0].id }
-        : { page: 'add' }
-      : route;
+  const dashList = dashboards.data ?? [];
+  const effective: Route = route.page === 'home' && databases.isSuccess && !dashboards.isPending ? homeRoute(dashList, list) : route;
 
   return (
     <div className="flex h-full flex-col md:flex-row">
       <nav
-        aria-label="Databases"
+        aria-label="Main"
         className="flex shrink-0 gap-1 overflow-x-auto border-b border-slate-200 bg-white px-3 py-2 md:w-60 md:flex-col md:overflow-visible md:border-r md:border-b-0 md:py-4 dark:border-slate-800 dark:bg-slate-900"
       >
         <a href="#/" className="mr-2 flex min-h-11 shrink-0 items-center gap-2 px-2 text-lg font-bold md:mb-3">
           <img src={`${import.meta.env.BASE_URL}favicon.svg`} alt="" className="h-6 w-6" />
           LensIQ
         </a>
-        {list.map((db) => (
-          <a
-            key={db.id}
-            href={`#/db/${encodeURIComponent(db.id)}`}
-            className={navLink(effective.page === 'db' && effective.id === db.id)}
-          >
-            {db.name}
-          </a>
-        ))}
-        <a href="#/add" className={navLink(effective.page === 'add')}>
-          + Add database
-        </a>
-        <p className="hidden px-3 pt-4 pb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 md:block">Dashboards</p>
-        <span className="mx-1 shrink-0 self-center text-slate-300 md:hidden" aria-hidden>
-          |
-        </span>
-        {(dashboards.data ?? []).map((d) => (
-          <a key={d.id} href={`#/dash/${encodeURIComponent(d.id)}`} className={navLink(effective.page === 'dash' && effective.id === d.id)}>
-            {d.name}
-          </a>
+        <p className={navHeading}>Dashboards</p>
+        {dashList.map((d, i) => (
+          <div key={d.id} className="group flex shrink-0 items-center">
+            <a href={`#/dash/${encodeURIComponent(d.id)}`} className={`${navLink(effective.page === 'dash' && effective.id === d.id)} md:min-w-0 md:flex-1`}>
+              <span className="truncate">{d.name}</span>
+            </a>
+            <button type="button" aria-label={`Move ${d.name} up`} className={moveButton} disabled={i === 0} onClick={() => moveDashboard.mutate({ id: d.id, position: i - 1 })}>
+              ↑
+            </button>
+            <button type="button" aria-label={`Move ${d.name} down`} className={moveButton} disabled={i === dashList.length - 1} onClick={() => moveDashboard.mutate({ id: d.id, position: i + 1 })}>
+              ↓
+            </button>
+          </div>
         ))}
         {naming ? (
           <form
@@ -127,6 +132,22 @@ export function App() {
             + New dashboard
           </button>
         )}
+        <span className="mx-1 shrink-0 self-center text-slate-300 md:hidden" aria-hidden>
+          |
+        </span>
+        <p className={navHeading}>Databases</p>
+        {list.map((db) => (
+          <a
+            key={db.id}
+            href={`#/db/${encodeURIComponent(db.id)}`}
+            className={navLink(effective.page === 'db' && effective.id === db.id)}
+          >
+            {db.name}
+          </a>
+        ))}
+        <a href="#/add" className={navLink(effective.page === 'add')}>
+          + Add database
+        </a>
         <a href="#/settings" className={`${navLink(effective.page === 'settings')} md:mt-auto`}>
           Settings
         </a>

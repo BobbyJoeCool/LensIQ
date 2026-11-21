@@ -2,11 +2,10 @@ import { expect, test } from '@playwright/test';
 
 // Runs against the static demo build (npm run build:demo), served under /LensIQ/ like GitHub Pages.
 
-test('the demo opens on sample data with a banner, and its dashboards render', async ({ page }) => {
+test('the demo opens on its first dashboard with a banner, and its dashboards render', async ({ page }) => {
   await page.goto('./');
   await expect(page.getByTestId('demo-banner')).toContainText('made-up sample data');
-  await expect(page.getByRole('heading', { name: 'Job Search Tracker' })).toBeVisible();
-  await page.getByRole('link', { name: 'Job Search', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Job Search', exact: true })).toBeVisible(); // opens on the first dashboard (#50)
   await expect(page.getByRole('listitem', { name: /^Interviewing/ })).toBeVisible(); // pipeline board tile
   await expect(page.locator('.recharts-surface').first()).toBeVisible();
   await expect(page.getByTestId('stat-value')).toContainText('$');
@@ -16,7 +15,7 @@ test('the demo opens on sample data with a banner, and its dashboards render', a
 });
 
 test('visitors can edit, and a reload resets to the sample data', async ({ page }) => {
-  await page.goto('./');
+  await page.goto('./#/db/demo-jobs');
   const row = page.getByRole('table', { name: 'Database rows' }).getByRole('row').filter({ hasText: 'Contoso Analytics' });
   await row.getByRole('cell', { name: 'Edit Role' }).click();
   await page.getByLabel('Role', { exact: true }).fill('Changed in the demo');

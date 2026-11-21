@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import type { RowsResponse } from '@lensiq/shared';
-import { App, parseHash } from './App';
+import { App, homeRoute, parseHash } from './App';
 import { resetSyncMemory } from './components/DatabaseView';
 
 describe('parseHash', () => {
@@ -13,6 +13,14 @@ describe('parseHash', () => {
     expect(parseHash('#/db/')).toEqual({ page: 'home' });
     expect(parseHash('#/db/ds1/v/v%201')).toEqual({ page: 'db', id: 'ds1', viewId: 'v 1' });
     expect(parseHash('#/dash/d1')).toEqual({ page: 'dash', id: 'd1' });
+  });
+});
+
+describe('homeRoute (#50)', () => {
+  it('opens the first dashboard, else the first database, else the add form', () => {
+    expect(homeRoute([{ id: 'd1' }, { id: 'd2' }], [{ id: 'db1' }])).toEqual({ page: 'dash', id: 'd1' });
+    expect(homeRoute([], [{ id: 'db1' }, { id: 'db2' }])).toEqual({ page: 'db', id: 'db1' });
+    expect(homeRoute([], [])).toEqual({ page: 'add' });
   });
 });
 

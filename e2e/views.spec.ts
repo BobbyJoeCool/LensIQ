@@ -205,6 +205,38 @@ test('highlight rules color matching rows or one cell, saved with the view (#51)
   await expect(northwind.locator('td[data-highlight]')).toHaveCount(0);
 });
 
+test('dashboards come first in the menu, the app opens on the first one, and they can be reordered (#50)', async ({ page, isMobile }) => {
+  await addJobSearch(page);
+  for (const name of ['Weekly', 'Friday Review']) {
+    await page.getByRole('button', { name: '+ New dashboard' }).click();
+    await page.getByLabel('New dashboard name').fill(name);
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(page.getByRole('heading', { name })).toBeVisible();
+  }
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const weekly = nav.getByRole('link', { name: 'Weekly' });
+  const friday = nav.getByRole('link', { name: 'Friday Review' });
+  const db = nav.getByRole('link', { name: 'Job Search Tracker' });
+  const before = async (a: typeof db, b: typeof db) => {
+    const [ba, bb] = [(await a.boundingBox())!, (await b.boundingBox())!];
+    return isMobile ? ba.x < bb.x : ba.y < bb.y; // a sideways bar on a phone, a column on desktop
+  };
+  expect(await before(friday, db)).toBe(true); // dashboards above databases
+  expect(await before(weekly, friday)).toBe(true);
+
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Weekly' })).toBeVisible(); // opens on the first dashboard
+
+  if (!isMobile) {
+    await friday.hover();
+    await nav.getByRole('button', { name: 'Move Friday Review up' }).click();
+    await expect(async () => expect(await before(friday, weekly)).toBe(true)).toPass();
+    await page.goto('/');
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Friday Review' })).toBeVisible();
+  }
+});
+
 test('rename, duplicate and delete views', async ({ page }) => {
   await addJobSearch(page);
   const tabs = page.getByRole('navigation', { name: 'Views' });

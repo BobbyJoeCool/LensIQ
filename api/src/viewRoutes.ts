@@ -100,6 +100,7 @@ export function registerViewRoutes(app: FastifyInstance, store: Store): void {
           type: 'object',
           properties: {
             name: { type: 'string' },
+            position: { type: 'integer', minimum: 0 },
             tiles: {
               type: 'array',
               items: {

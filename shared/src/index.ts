@@ -401,6 +401,8 @@ export interface DashboardTile {
 export interface Dashboard {
   id: string;
   name: string;
+  /** Order in the sidebar (#50); the first dashboard is where the app opens. */
+  position: number;
   /** Tiles in order; the grid flows them left to right, one column on a phone. */
   tiles: DashboardTile[];
   createdAt: string;
@@ -431,4 +433,6 @@ export interface ImportResult {
 export interface UpdateDashboardRequest {
   name?: string;
   tiles?: DashboardTile[];
+  /** Move to this index in the sidebar order (#50). */
+  position?: number;
 }
