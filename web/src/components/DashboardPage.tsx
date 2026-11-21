@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { Dashboard, DashboardTile, DatabaseSummary, TileSize, View, ViewType } from '@lensiq/shared';
+import type { Dashboard, DashboardTile, DatabaseSummary, TileHeight, TileSize, View, ViewType } from '@lensiq/shared';
 import { api } from '../api';
 import { ViewHost } from '../views/ViewHost';
 import { useAllViews } from '../views/useViews';
@@ -14,14 +14,19 @@ const SPAN: Record<TileSize, string> = {
   full: 'md:col-span-6',
 };
 const SIZE_LABEL: Record<TileSize, string> = { small: 'Small (⅓)', medium: 'Medium (½)', large: 'Large (⅔)', full: 'Full width' };
+/** Desktop grid rows are 20rem; a standard tile spans two of them (#54). */
+const ROWS: Record<TileHeight, string> = { short: 'md:row-span-1', standard: 'md:row-span-2', tall: 'md:row-span-4' };
+const HEIGHT_LABEL: Record<TileHeight, string> = { short: 'Short (½)', standard: 'Standard', tall: 'Tall (2×)' };
 
 let seq = 0;
 const tileId = () => `t${Date.now().toString(36)}${(seq++).toString(36)}`;
 
 /**
  * A named page of views from any databases (#24). The grid has six columns
- * on desktop (tiles span a third, half, two thirds or all of it) and stacks
- * to one column on a phone.
+ * on desktop (tiles span a third, half, two thirds or all of it) and rows of
+ * a fixed height (tiles are ½, 1 or 2 standard heights, #54); a later tile
+ * that fits moves up into a gap. On a phone it stacks to one column and each
+ * tile sizes to its content.
  */
 export function DashboardPage({ id }: { id: string }) {
   const queryClient = useQueryClient();
@@ -133,11 +138,17 @@ export function DashboardPage({ id }: { id: string }) {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-6" aria-label="Dashboard tiles">
+      <div className="grid grid-cols-1 gap-4 md:grid-flow-row-dense md:auto-rows-[20rem] md:grid-cols-6" aria-label="Dashboard tiles">
         {d.tiles.map((t, i) => {
           const view = viewById.get(t.viewId);
+          const height = t.height ?? 'standard';
           return (
-            <article key={t.id} className={`flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-900/40 ${SPAN[t.size]}`} aria-label={view?.name ?? 'Missing view'}>
+            <article
+              key={t.id}
+              data-height={height}
+              className={`flex min-w-0 flex-col gap-2 rounded-xl border border-slate-200 bg-slate-50/60 p-3 md:min-h-0 md:overflow-hidden dark:border-slate-800 dark:bg-slate-900/40 ${SPAN[t.size]} ${ROWS[height]}`}
+              aria-label={view?.name ?? 'Missing view'}
+            >
               <header className="flex flex-wrap items-center justify-between gap-1">
                 {view ? (
                   <a href={viewHref(view.databaseId, view.id)} className="min-w-0 truncate text-sm font-semibold hover:underline" title="Open this view to change its settings">
@@ -152,6 +163,13 @@ export function DashboardPage({ id }: { id: string }) {
                       {(Object.keys(SIZE_LABEL) as TileSize[]).map((s) => (
                         <option key={s} value={s}>
                           {SIZE_LABEL[s]}
+                        </option>
+                      ))}
+                    </select>
+                    <select aria-label="Tile height" className={`${fieldClass} min-h-8 w-auto text-xs`} value={height} onChange={(e) => setTiles(d.tiles.map((x) => (x.id === t.id ? { ...x, height: e.target.value as TileHeight } : x)))}>
+                      {(Object.keys(HEIGHT_LABEL) as TileHeight[]).map((h) => (
+                        <option key={h} value={h}>
+                          {HEIGHT_LABEL[h]}
                         </option>
                       ))}
                     </select>
@@ -173,7 +191,7 @@ export function DashboardPage({ id }: { id: string }) {
         })}
       </div>
 
-      {editing && <AddTile views={views.data ?? []} databases={databases.data ?? []} onAdd={(viewId) => setTiles([...d.tiles, { id: tileId(), viewId, size: 'medium' }])} />}
+      {editing && <AddTile views={views.data ?? []} databases={databases.data ?? []} onAdd={(viewId) => setTiles([...d.tiles, { id: tileId(), viewId, size: 'medium', height: 'standard' }])} />}
     </section>
   );
 }

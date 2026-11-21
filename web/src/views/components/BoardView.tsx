@@ -16,6 +16,7 @@ import { Cell } from '../../components/cells/Cell';
 import type { DatabaseEditing } from '../../editing/useDatabaseEditing';
 import { isEmptyCell } from '../query';
 import { OPTION_COLORS } from '../../format';
+import { TILE_FILL } from '../fill';
 
 const NONE = '__none';
 
@@ -82,7 +83,7 @@ export function BoardView({ columns, rows, config, editing, onOpenRow, onCreate,
 
   return (
     <DndContext sensors={sensors} onDragStart={(e) => setDragging(String(e.active.id))} onDragEnd={onDragEnd} onDragCancel={() => setDragging(null)}>
-      <div className={`flex gap-3 overflow-x-auto pb-2 ${compact ? 'max-h-96' : ''}`} role="list" aria-label={`Board grouped by ${group.name}`}>
+      <div className={`flex gap-3 overflow-x-auto pb-2 ${compact ? TILE_FILL : ''}`} role="list" aria-label={`Board grouped by ${group.name}`}>
         {shown.map((g) => (
           <BoardColumn
             key={g.key}
@@ -127,7 +128,7 @@ function BoardColumn({
       ref={setNodeRef}
       role="listitem"
       aria-label={`${label} (${count})`}
-      className={`flex w-72 shrink-0 flex-col rounded-lg p-2 ${isOver ? 'bg-sky-100 dark:bg-sky-950/60' : 'bg-slate-100 dark:bg-slate-800/60'}`}
+      className={`flex min-h-0 w-72 shrink-0 flex-col rounded-lg p-2 ${isOver ? 'bg-sky-100 dark:bg-sky-950/60' : 'bg-slate-100 dark:bg-slate-800/60'}`}
     >
       <header className="mb-2 flex items-center justify-between gap-2 px-1">
         <span className="flex min-w-0 items-center gap-2">
@@ -139,7 +140,7 @@ function BoardColumn({
           <span className="text-xs text-slate-500">{count}</span>
         </span>
       </header>
-      <div className="flex min-h-12 flex-col gap-2 overflow-y-auto">{children}</div>
+      <div className="flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto">{children}</div>
       {canAdd && (
         <button type="button" onClick={onAdd} className="mt-2 min-h-9 rounded-md px-2 text-left text-sm text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700">
           + New

@@ -179,6 +179,42 @@ test('build a dashboard from existing and new views; it stacks to one column on 
   await expect(tiles).toHaveCount(1);
 });
 
+test('dashboard tiles fill their height, and short tiles stack next to a standard one (#54)', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Tile heights apply to the desktop grid; a phone stacks tiles at their content height.');
+  await addJobSearch(page);
+  await addView(page, 'Board');
+
+  await page.getByRole('button', { name: '+ New dashboard' }).click();
+  await page.getByLabel('New dashboard name').fill('Heights');
+  await page.getByRole('button', { name: 'Create', exact: true }).click();
+  await page.getByRole('button', { name: 'Add views' }).click();
+  await page.getByLabel('View to add').selectOption({ label: 'Job Search Tracker · Board' });
+  await page.getByRole('button', { name: 'Add to dashboard' }).click();
+  for (let i = 0; i < 2; i++) {
+    await page.getByLabel('New view type').selectOption('chart');
+    await page.getByRole('button', { name: 'Create and add' }).click();
+  }
+  const tiles = page.getByRole('article').filter({ has: page.getByRole('link', { name: /Job Search Tracker/ }) });
+  await expect(tiles).toHaveCount(3);
+
+  // The board tile is standard height and its columns reach the bottom of the tile (the bug: they stopped partway).
+  const board = tiles.nth(0);
+  const list = board.getByRole('list', { name: /Board grouped by/ });
+  const [tileBox, listBox] = [await board.boundingBox(), await list.boundingBox()];
+  expect(tileBox!.y + tileBox!.height - (listBox!.y + listBox!.height)).toBeLessThan(24);
+
+  // Two ½-height charts stack next to the standard board.
+  await page.getByLabel('Tile height').nth(1).selectOption('short');
+  await page.getByLabel('Tile height').nth(2).selectOption('short');
+  await page.getByRole('button', { name: 'Done' }).click();
+  await page.reload();
+  await expect(tiles.nth(2)).toHaveAttribute('data-height', 'short');
+  const [a, b, c] = [await tiles.nth(0).boundingBox(), await tiles.nth(1).boundingBox(), await tiles.nth(2).boundingBox()];
+  expect(Math.abs(b!.y - a!.y)).toBeLessThan(2); // top-aligned with the board
+  expect(Math.abs(c!.x - b!.x)).toBeLessThan(2); // the second one sits under the first
+  expect(Math.abs(c!.y + c!.height - (a!.y + a!.height))).toBeLessThan(2); // and ends level with the board
+});
+
 test('the Add view and view action menus open on top of the page, not clipped by the tab bar (#43)', async ({ page }) => {
   await addJobSearch(page);
   const nav = page.getByRole('navigation', { name: 'Views' });

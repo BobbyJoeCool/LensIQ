@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { CellValue, Column, ConflictResponse, Row, RowsResponse } from '@lensiq/shared';
+import type { CellChange, CellValue, Column, ConflictResponse, Row, RowConflictResponse, RowsResponse } from '@lensiq/shared';
 import { ApiRequestError, api } from '../api';
 import { valueOf } from './editable';
 
@@ -12,6 +12,12 @@ export interface Conflict {
   /** What Notion has now. */
   current: CellValue;
 }
+
+/** Result of saving the row panel (#57). */
+export type SaveRowResult =
+  | { ok: true; row: Row }
+  | { ok: false; conflicts: { columnId: string; current: CellValue }[] }
+  | { ok: false; conflicts?: undefined };
 
 /**
  * Edits for one database. Every cell edit shows on screen at once
@@ -79,6 +85,40 @@ export function useDatabaseEditing(dbId: string) {
     [dbId, queryClient, patchRow],
   );
 
+  /**
+   * Saves the row panel's changes in one request (#57). Not optimistic: the
+   * panel holds the edits until Notion accepts them. On a conflict the row on
+   * screen is refreshed to Notion's values and the conflicting properties are
+   * returned so the panel can ask which to keep.
+   */
+  const saveRow = useCallback(
+    async (row: Row, changes: CellChange[], { force = false }: { force?: boolean } = {}): Promise<SaveRowResult> => {
+      setError(null);
+      setPending((n) => n + 1);
+      await queryClient.cancelQueries({ queryKey: key });
+      try {
+        const saved = await api.updateRow(dbId, row.id, { changes, force });
+        patchRow(row.id, () => saved);
+        const named = changes.flatMap(({ value: v }) => (v.kind === 'select' && v.value ? [v.value] : v.kind === 'multi_select' ? v.value : []));
+        if (named.some((o) => !o.id)) void queryClient.invalidateQueries({ queryKey: key });
+        return { ok: true, row: saved };
+      } catch (err) {
+        if (err instanceof ApiRequestError && err.status === 409 && (err.body as RowConflictResponse)?.error === 'conflict') {
+          const body = err.body as RowConflictResponse;
+          patchRow(row.id, () => body.row);
+          return { ok: false, conflicts: body.conflicts };
+        }
+        if (err instanceof ApiRequestError && err.status === 410) patchRow(row.id, () => null);
+        setError(err instanceof Error ? err.message : 'The changes could not be saved.');
+        return { ok: false };
+      } finally {
+        setPending((n) => n - 1);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [dbId, queryClient, patchRow],
+  );
+
   /** Conflict dialog choice: "mine" overwrites Notion; "theirs" keeps Notion's value (already on screen). */
   const resolveConflict = useCallback(
     async (choice: 'mine' | 'theirs') => {
@@ -133,7 +173,7 @@ export function useDatabaseEditing(dbId: string) {
     [dbId, patchRow, queryClient],
   );
 
-  return { editCell, conflict, resolveConflict, createRow, deleteRow, error, clearError: () => setError(null), saving: pending > 0 };
+  return { editCell, saveRow, conflict, resolveConflict, createRow, deleteRow, error, clearError: () => setError(null), saving: pending > 0 };
 }
 
 export type DatabaseEditing = ReturnType<typeof useDatabaseEditing>;

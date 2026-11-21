@@ -80,8 +80,16 @@ describe('dashboards', () => {
     });
     const updated = res.json<Dashboard>();
     expect(updated.name).toBe('Friday');
-    expect(updated.tiles[0]).toMatchObject({ viewId: table!.id, size: 'medium' }); // unknown size falls back
+    expect(updated.tiles[0]).toMatchObject({ viewId: table!.id, size: 'medium', height: 'standard' }); // unknown size falls back; height defaults
     expect(updated.tiles[0]!.id).toBeTruthy();
+
+    // Tile height (#54): valid heights are kept, anything else falls back to standard.
+    const heights = await app.inject({
+      method: 'PATCH',
+      url: `/api/dashboards/${dash.id}`,
+      payload: { tiles: [{ viewId: table!.id, size: 'small', height: 'short' }, { viewId: table!.id, size: 'small', height: 'tall' }, { viewId: table!.id, size: 'small', height: 'giant' }] },
+    });
+    expect(heights.json<Dashboard>().tiles.map((t) => t.height)).toEqual(['short', 'tall', 'standard']);
 
     expect((await app.inject({ method: 'GET', url: '/api/dashboards' })).json()).toHaveLength(1);
     expect((await app.inject({ method: 'DELETE', url: `/api/dashboards/${dash.id}` })).statusCode).toBe(204);
@@ -116,7 +124,7 @@ describe('export and import (#38)', () => {
   it('round-trips views and dashboards, skipping databases that are not connected', async () => {
     const chart = (await createView({ databaseId: DS, name: 'Weekly', type: 'chart' })).json<View>();
     const dash = (await app.inject({ method: 'POST', url: '/api/dashboards', payload: { name: 'Job Search' } })).json<Dashboard>();
-    await app.inject({ method: 'PATCH', url: `/api/dashboards/${dash.id}`, payload: { tiles: [{ viewId: chart.id, size: 'full' }] } });
+    await app.inject({ method: 'PATCH', url: `/api/dashboards/${dash.id}`, payload: { tiles: [{ viewId: chart.id, size: 'full', height: 'tall' }] } });
 
     const exported = await app.inject({ method: 'GET', url: '/api/export' });
     expect(exported.headers['content-disposition']).toMatch(/lensiq-views-\d{4}-\d{2}-\d{2}\.json/);
@@ -134,7 +142,7 @@ describe('export and import (#38)', () => {
     const dashes = (await app2.inject({ method: 'GET', url: '/api/dashboards' })).json<Dashboard[]>();
     const views2 = (await app2.inject({ method: 'GET', url: '/api/views' })).json<View[]>();
     expect(dashes[0]!.tiles).toHaveLength(1);
-    expect(dashes[0]!.tiles[0]).toMatchObject({ viewId: views2.find((v) => v.name === 'Weekly')!.id, size: 'full' });
+    expect(dashes[0]!.tiles[0]).toMatchObject({ viewId: views2.find((v) => v.name === 'Weekly')!.id, size: 'full', height: 'tall' }); // tile height survives (#54)
     await app2.close();
   });
 

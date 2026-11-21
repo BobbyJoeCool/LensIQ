@@ -32,6 +32,20 @@ describe('DemoServer', () => {
     expect(() => call(s, 'PATCH', `/api/databases/${JOBS_ID}/rows/${first.id}`, { columnId: 'status', value: { kind: 'select', value: null }, expected: {} })).toThrow(/can't be empty/);
   });
 
+  it('saves several cells of a row at once (row panel Save, #57)', () => {
+    const s = new DemoServer(now);
+    const first = (call(s, 'GET', `/api/databases/${JOBS_ID}/rows`).body as RowsResponse).rows[0]!;
+    const saved = call(s, 'PATCH', `/api/databases/${JOBS_ID}/rows/${first.id}/cells`, {
+      changes: [
+        { columnId: 'title', value: { kind: 'text', value: 'Renamed' }, expected: first.cells.title },
+        { columnId: 'tags', value: { kind: 'multi_select', value: [{ id: '', name: 'Contract', color: 'default' }] }, expected: first.cells.tags },
+      ],
+    });
+    expect((saved.body as Row).cells.title).toEqual({ kind: 'text', value: 'Renamed' });
+    expect((saved.body as Row).cells.tags).toMatchObject({ value: [{ name: 'Contract' }] });
+    expect(() => call(s, 'PATCH', `/api/databases/${JOBS_ID}/rows/${first.id}/cells`, { changes: [] })).toThrow(/Nothing to save/);
+  });
+
   it('creates and deletes rows; relations resolve to titles', () => {
     const s = new DemoServer(now);
     const created = call(s, 'POST', `/api/databases/${BILLS_ID}/rows`, { cells: { title: { kind: 'text', value: 'Gym' } } });

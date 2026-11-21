@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
-import type { CellValue, ConflictResponse, Row, RowsResponse } from '@lensiq/shared';
+import type { CellValue, ConflictResponse, Row, RowConflictResponse, RowsResponse } from '@lensiq/shared';
 import { buildServer } from '../src/server.js';
 import { Store } from '../src/store.js';
 import { SyncService } from '../src/sync.js';
@@ -102,6 +102,64 @@ describe('PATCH a cell', () => {
     const res = await patch('p-2', { columnId: 'role', value: text('x'), expected: text('Full Stack Developer') });
     expect(res.statusCode).toBe(410);
     expect((await rows()).map((r) => r.id)).toEqual(['p-1']);
+  });
+});
+
+describe('PATCH several cells of a row (row panel Save, #57)', () => {
+  const save = (pageId: string, payload: object) => app.inject({ method: 'PATCH', url: `/api/databases/${DS}/rows/${pageId}/cells`, payload });
+  const changes = [
+    { columnId: 'role', value: text('Staff Engineer'), expected: text('Full Stack Developer') },
+    { columnId: 'stat', value: { kind: 'select', value: offer }, expected: { kind: 'select', value: applied } },
+  ];
+
+  it('writes every changed property in one Notion update', async () => {
+    let writes = 0;
+    const original = notion.updateRow.bind(notion);
+    notion.updateRow = async (...args) => (writes++, original(...args));
+    const res = await save('p-2', { changes });
+    expect(res.statusCode).toBe(200);
+    expect(writes).toBe(1);
+    expect(res.json<Row>().cells).toMatchObject({ role: text('Staff Engineer'), stat: { kind: 'select', value: offer } });
+    expect((await notion.fetchRow('p-2')).cells.role).toEqual(text('Staff Engineer'));
+    expect((await rows()).find((r) => r.id === 'p-2')?.cells.stat).toEqual({ kind: 'select', value: offer });
+  });
+
+  it('writes nothing and lists every conflict when properties changed in Notion', async () => {
+    notion.externalEdit('p-2', 'Role', [{ text: { content: 'Changed in Notion' } }]);
+    const res = await save('p-2', { changes });
+    expect(res.statusCode).toBe(409);
+    const body = res.json<RowConflictResponse>();
+    expect(body.error).toBe('conflict');
+    expect(body.conflicts).toEqual([{ columnId: 'role', current: text('Changed in Notion') }]);
+    expect(body.row.cells.role).toEqual(text('Changed in Notion'));
+    const inNotion = (await notion.fetchRow('p-2')).cells;
+    expect(inNotion.role).toEqual(text('Changed in Notion'));
+    expect(inNotion.stat).toEqual({ kind: 'select', value: applied }); // the other change wasn't written either
+  });
+
+  it('overwrites with force', async () => {
+    notion.externalEdit('p-2', 'Role', [{ text: { content: 'Changed in Notion' } }]);
+    const res = await save('p-2', { changes, force: true });
+    expect(res.statusCode).toBe(200);
+    expect((await notion.fetchRow('p-2')).cells.role).toEqual(text('Staff Engineer'));
+  });
+
+  it('skips the write when nothing actually changed', async () => {
+    let writes = 0;
+    const original = notion.updateRow.bind(notion);
+    notion.updateRow = async (...args) => (writes++, original(...args));
+    const res = await save('p-2', { changes: [{ columnId: 'role', value: text('Full Stack Developer'), expected: text('Full Stack Developer') }] });
+    expect(res.statusCode).toBe(200);
+    expect(writes).toBe(0);
+  });
+
+  it('refuses bad values, unknown or repeated columns and an empty list before calling Notion', async () => {
+    expect((await save('p-2', { changes: [] })).statusCode).toBe(400);
+    expect((await save('p-2', { changes: [{ columnId: 'nope', value: text('x'), expected: text('') }] })).json()).toMatchObject({ error: 'unknown_column' });
+    expect((await save('p-2', { changes: [changes[0], changes[0]] })).json()).toMatchObject({ error: 'duplicate_column' });
+    const bad = await save('p-2', { changes: [changes[0], { columnId: 'sal', value: text('lots'), expected: { kind: 'number', value: null } }] });
+    expect(bad.statusCode).toBe(400);
+    expect((await notion.fetchRow('p-2')).cells.role).toEqual(text('Full Stack Developer')); // nothing written
   });
 });
 

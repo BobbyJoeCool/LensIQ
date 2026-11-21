@@ -95,7 +95,7 @@ export function ViewHost({ view, compact = false }: { view: View; compact?: bool
 
   return (
     <CellContext.Provider value={{ dbId: view.databaseId }}>
-    <div className="flex min-h-0 flex-col gap-2">
+    <div className={`flex min-h-0 flex-col gap-2 ${compact ? 'md:flex-1' : ''}`}>
       {!compact && (
         <div className="flex flex-wrap items-center gap-1" role="toolbar" aria-label="View options">
           <FilterMenu columns={columns} rows={allRows} filters={config.filters} filterMode={config.filterMode} onChange={(filters, filterMode) => setConfig({ ...config, filters, filterMode })} />

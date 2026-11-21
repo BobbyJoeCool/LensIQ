@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { AddDatabaseRequest, CreateRowRequest, SyncMode, UpdateCellRequest } from '@lensiq/shared';
+import type { AddDatabaseRequest, CreateRowRequest, SyncMode, UpdateCellRequest, UpdateRowRequest } from '@lensiq/shared';
 import type { Store } from './store.js';
 import type { SyncService } from './sync.js';
 
@@ -79,6 +79,36 @@ export function registerRoutes(app: FastifyInstance, store: Store, sync: SyncSer
       },
     },
     async (req) => sync.updateCell(req.params.id, req.params.pageId, req.body),
+  );
+
+  app.patch<RowParams & { Body: UpdateRowRequest }>(
+    '/api/databases/:id/rows/:pageId/cells',
+    {
+      schema: {
+        body: {
+          type: 'object',
+          required: ['changes'],
+          properties: {
+            changes: {
+              type: 'array',
+              minItems: 1,
+              maxItems: 100,
+              items: {
+                type: 'object',
+                required: ['columnId', 'value', 'expected'],
+                properties: {
+                  columnId: { type: 'string', minLength: 1, maxLength: 200 },
+                  value: cellValueSchema,
+                  expected: cellValueSchema,
+                },
+              },
+            },
+            force: { type: 'boolean' },
+          },
+        },
+      },
+    },
+    async (req) => sync.updateRow(req.params.id, req.params.pageId, req.body),
   );
 
   app.get<DbParams & { Params: { columnId: string } }>('/api/databases/:id/relations/:columnId', async (req) =>

@@ -105,7 +105,7 @@ export function registerViewRoutes(app: FastifyInstance, store: Store): void {
               items: {
                 type: 'object',
                 required: ['viewId'],
-                properties: { id: { type: 'string' }, viewId: { type: 'string' }, size: { type: 'string' } },
+                properties: { id: { type: 'string' }, viewId: { type: 'string' }, size: { type: 'string' }, height: { type: 'string' } },
               },
             },
           },
@@ -163,7 +163,7 @@ export function registerViewRoutes(app: FastifyInstance, store: Store): void {
         }
         for (const d of body.dashboards) {
           const created = r.dashboards.create(d.name);
-          const tiles = (d.tiles ?? []).flatMap((t) => (idMap.has(t.viewId) ? [{ id: '', viewId: idMap.get(t.viewId)!, size: t.size }] : []));
+          const tiles = (d.tiles ?? []).flatMap((t) => (idMap.has(t.viewId) ? [{ id: '', viewId: idMap.get(t.viewId)!, size: t.size, height: t.height }] : []));
           r.dashboards.update(created.id, { tiles }, (id) => [...idMap.values()].includes(id));
           result.dashboardsCreated++;
         }

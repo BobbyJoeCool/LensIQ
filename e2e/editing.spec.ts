@@ -148,11 +148,39 @@ test.describe('phone', () => {
     await expect(panel).toBeVisible();
     await panel.getByRole('button', { name: 'Status' }).click();
     await panel.getByRole('option', { name: /Interviewing/ }).click();
-    await panel.getByRole('button', { name: 'Close' }).click();
+    await panel.getByRole('button', { name: 'Save', exact: true }).click();
+    await expect(panel).toBeHidden();
     await expect(rowOf(page, 'Contoso')).toContainText('Interviewing');
-    // Panel controls are big enough to tap.
+    // Panel controls are on screen and big enough to tap (#57).
     await rowOf(page, 'Contoso').click();
-    const box = await page.getByRole('button', { name: 'Close' }).boundingBox();
-    expect(box?.height ?? 0).toBeGreaterThanOrEqual(44);
+    for (const name of ['Close', 'Save', 'Cancel']) {
+      const button = panel.getByRole('button', { name, exact: true });
+      await expect(button).toBeInViewport();
+      expect((await button.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(44);
+    }
+  });
+
+  test('closing the panel with unsaved edits asks first; Discard keeps Notion unchanged, Save writes (#57)', async ({ page }) => {
+    await addJobSearch(page);
+    const panel = page.getByRole('dialog', { name: 'Row details' });
+    const ask = page.getByRole('alertdialog', { name: 'Save changes to this row?' });
+
+    await rowOf(page, 'Contoso').click();
+    await panel.getByRole('button', { name: 'Status' }).click();
+    await panel.getByRole('option', { name: /Interviewing/ }).click();
+    await panel.getByRole('button', { name: 'Cancel' }).click();
+    await ask.getByRole('button', { name: 'Discard' }).click();
+    await expect(panel).toBeHidden();
+    await page.reload();
+    await expect(rowOf(page, 'Contoso')).not.toContainText('Interviewing');
+
+    await rowOf(page, 'Contoso').click();
+    await panel.getByRole('button', { name: 'Status' }).click();
+    await panel.getByRole('option', { name: /Interviewing/ }).click();
+    await panel.getByRole('button', { name: 'Close' }).click();
+    await ask.getByRole('button', { name: 'Save' }).click();
+    await expect(panel).toBeHidden();
+    await page.reload();
+    await expect(rowOf(page, 'Contoso')).toContainText('Interviewing');
   });
 });

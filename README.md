@@ -30,7 +30,7 @@ Notion's free plan allows one chart. LensIQ keeps Notion as the data store and a
 
 ## Features
 
-- **Edit Notion from LensIQ.** Change cells inline (or in a row panel on a phone), add rows, delete rows to Notion's trash, and create new select options as you type.
+- **Edit Notion from LensIQ.** Change cells inline, or in a row panel (with Save and Cancel) on a phone, add rows, delete rows to Notion's trash, and create new select options as you type.
 - **No silent overwrites.** Before every write, the API re-reads the page; if that cell changed in Notion meanwhile, you pick which value to keep.
 - **Notion-style views.** Table, board, chart and calendar tabs on each database, each with its own filters (and/or), sorts and settings.
 - **Dashboards.** Any number of pages mixing views from any databases, in a grid that stacks to one column on a phone.
@@ -38,7 +38,7 @@ Notion's free plan allows one chart. LensIQ keeps Notion as the data store and a
 - **Installable.** Add it to the iPhone home screen as an app.
 - **Backups.** Export and import every view and dashboard as JSON.
 
-> **Status: v1.0.0, released 2026-11-18.** Everything above is built, tested and running. See the [changelog](CHANGELOG.md) and the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
+> **Status: v1.1.0, released 2026-11-20.** Everything above is built, tested and running. See the [changelog](CHANGELOG.md) and the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
 
 ## How it works
 
@@ -59,7 +59,7 @@ flowchart LR
 - **Charts.** Bar (vertical, horizontal, stacked), line, area (with running totals), donut and number tiles; count, sum, average, min or max; dates grouped by day, week, month or year; split by a select. Colors come from an eight-slot palette checked for color-vision deficiency in light and dark mode, and each Notion option keeps its own color. Every chart has a "Show data" table.
 - **Relations and files.** Relation columns show linked page titles (read from the related database on each full sync, about one request per 100 pages) and edit with a searchable picker. Notion-hosted file links expire after an hour, so file links go through the API, which reads the page again and redirects to a fresh URL.
 - **Calendar.** Rows on a month grid by any date column; drag a row to another day (ranges keep their length), or "+" to add a row on a day. On a phone it's an agenda list.
-- **Dashboards.** Any number of named pages, each a grid of views from any databases (a third, half, two thirds or full width), stacking to one column on a phone.
+- **Dashboards.** Any number of named pages, each a grid of views from any databases (a third, half, two thirds or full width; short, standard or tall), stacking to one column on a phone.
 - **Rate limit.** Every Notion request goes through one limiter that spaces requests about 400 ms apart (≈2.5/s, under Notion's 3/s average). The Notion SDK retries 429 responses, honoring `Retry-After`.
 - Every `/api` request must carry a valid Cloudflare Access JWT, so the app can't be reached by going around Cloudflare.
 - **The public demo** is the same React app built with `VITE_DEMO=1`: a small in-browser server (`web/src/demo/`) answers its `/api` calls from fictional sample data, so it needs no Notion token or backend and is published to GitHub Pages by a workflow on every push to `main`. The demo code isn't in the normal build.
@@ -130,13 +130,14 @@ npm run build:demo   # static demo in web/dist-demo
 | `POST` | `/api/databases/:id/refresh` | Full reload from Notion |
 | `POST` | `/api/databases/:id/rows` | Create a row: `{ "cells": { "<columnId>": <cell value> } }` |
 | `PATCH` | `/api/databases/:id/rows/:pageId` | Set one cell: `{ columnId, value, expected, force? }`. Answers `409` with Notion's current value if that cell changed since `expected`. |
+| `PATCH` | `/api/databases/:id/rows/:pageId/cells` | Save several cells at once (the row panel's Save): `{ changes: [{ columnId, value, expected }], force? }`. All or nothing: answers `409` with every conflicting property (`conflicts`) and writes nothing if any changed in Notion. |
 | `DELETE` | `/api/databases/:id/rows/:pageId` | Move a row to Notion's trash |
 | `GET` | `/api/databases/:id/relations/:columnId` | Titles of a relation column's related pages: `{ available, options: [{ id, title }] }` |
 | `GET` | `/api/databases/:id/rows/:pageId/files/:columnId/:index` | Redirects to a freshly signed URL for a Notion-hosted file |
 | `GET` | `/api/views?databaseId=` | Views of a database in tab order (a default Table view is created the first time), or every view |
 | `POST` / `PATCH` / `DELETE` | `/api/views`, `/api/views/:id` | Create a view (`databaseId`, `name`, `type`, optional `config`); change its name, settings or tab position; delete it (and its dashboard tiles) |
 | `GET` / `POST` | `/api/dashboards` | List or create dashboards |
-| `GET` / `PATCH` / `DELETE` | `/api/dashboards/:id` | One dashboard; rename it or replace its tiles (`{ viewId, size }` in order); delete it |
+| `GET` / `PATCH` / `DELETE` | `/api/dashboards/:id` | One dashboard; rename it or replace its tiles (`{ viewId, size, height }` in order); delete it |
 | `GET` | `/api/export` | Every view and dashboard as one JSON file |
 | `POST` | `/api/import` | Add the views and dashboards from an export (databases matched by Notion ID; others skipped) |
 

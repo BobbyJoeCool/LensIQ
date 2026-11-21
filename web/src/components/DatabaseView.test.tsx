@@ -194,7 +194,72 @@ describe('DatabaseView editing', () => {
     expect(within(panel).getByRole('link', { name: 'Open in Notion ↗' })).toHaveAttribute('href', 'https://notion.so/p1');
     await user.click(within(panel).getByRole('button', { name: 'Status' }));
     await user.click(within(panel).getByRole('option', { name: /Offer/ }));
-    await waitFor(() => expect(patches()[0]?.body).toMatchObject({ columnId: 'stat', value: { kind: 'select', value: offer } }));
+    expect(patches()).toHaveLength(0); // held until Save (#57)
+    await user.click(within(panel).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patches()[0]).toMatchObject({ url: '/api/databases/ds1/rows/p1/cells', body: { changes: [{ columnId: 'stat', value: { kind: 'select', value: offer } }] } }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Row details' })).not.toBeInTheDocument());
+  });
+
+  it('row panel: closing with unsaved edits asks to save, discard or keep editing (#57)', async () => {
+    setDesktop(false);
+    handler = (_url, init) => (init?.method === 'PATCH' ? json({ ...row, cells: { ...row.cells, stat: { kind: 'select', value: offer } } }) : undefined);
+    const user = renderView();
+    await user.click(await screen.findByText('Engineer'));
+    const panel = screen.getByRole('dialog', { name: 'Row details' });
+    expect(within(panel).getByRole('button', { name: 'Save' })).toBeDisabled(); // nothing changed yet
+    expect(panel.className).toContain('pt-[env(safe-area-inset-top)]'); // clears the iPhone status bar
+    expect(panel.className).toContain('pb-[env(safe-area-inset-bottom)]'); // and the home indicator
+
+    // No edits: × closes straight away.
+    await user.click(within(panel).getByRole('button', { name: 'Close' }));
+    expect(screen.queryByRole('dialog', { name: 'Row details' })).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('Engineer'));
+    const again = screen.getByRole('dialog', { name: 'Row details' });
+    await user.click(within(again).getByRole('button', { name: 'Status' }));
+    await user.click(within(again).getByRole('option', { name: /Offer/ }));
+
+    await user.click(within(again).getByRole('button', { name: 'Close' }));
+    let ask = screen.getByRole('alertdialog', { name: 'Save changes to this row?' });
+    await user.click(within(ask).getByRole('button', { name: 'Keep editing' }));
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    expect(screen.getByRole('dialog', { name: 'Row details' })).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    ask = screen.getByRole('alertdialog', { name: 'Save changes to this row?' });
+    await user.click(within(ask).getByRole('button', { name: 'Discard' }));
+    expect(screen.queryByRole('dialog', { name: 'Row details' })).not.toBeInTheDocument();
+    expect(patches()).toHaveLength(0);
+
+    await user.click(screen.getByText('Engineer'));
+    const third = screen.getByRole('dialog', { name: 'Row details' });
+    await user.click(within(third).getByRole('button', { name: 'Status' }));
+    await user.click(within(third).getByRole('option', { name: /Offer/ }));
+    await user.click(within(third).getByRole('button', { name: 'Cancel' }));
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(patches()).toHaveLength(1));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Row details' })).not.toBeInTheDocument());
+  });
+
+  it('row panel: a conflict on Save keeps the panel open and asks which values to keep (#57)', async () => {
+    setDesktop(false);
+    const theirs = { kind: 'select', value: { id: 's9', name: 'Rejected', color: 'red' } } as const;
+    handler = (_url, init) => {
+      if (init?.method !== 'PATCH') return undefined;
+      const body = JSON.parse(String(init.body));
+      if (body.force) return json({ ...row, cells: { ...row.cells, stat: { kind: 'select', value: offer } } });
+      return json({ error: 'conflict', message: 'changed', conflicts: [{ columnId: 'stat', current: theirs }], row: { ...row, cells: { ...row.cells, stat: theirs } } }, 409);
+    };
+    const user = renderView();
+    await user.click(await screen.findByText('Engineer'));
+    const panel = screen.getByRole('dialog', { name: 'Row details' });
+    await user.click(within(panel).getByRole('button', { name: 'Status' }));
+    await user.click(within(panel).getByRole('option', { name: /Offer/ }));
+    await user.click(within(panel).getByRole('button', { name: 'Save' }));
+    expect(await within(panel).findByText(/“Status” was changed in Notion/)).toBeInTheDocument();
+    await user.click(within(panel).getByRole('button', { name: 'Keep mine and save' }));
+    await waitFor(() => expect(patches()[1]?.body).toMatchObject({ force: true }));
+    await waitFor(() => expect(screen.queryByRole('dialog', { name: 'Row details' })).not.toBeInTheDocument());
   });
 
   it('creates a row from the New form', async () => {

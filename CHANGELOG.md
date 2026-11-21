@@ -2,6 +2,21 @@
 
 All notable changes to LensIQ are listed here. Versions follow [Semantic Versioning](https://semver.org/). Work before v1.0.0 is tracked in the [GitHub issues](https://github.com/BobbyJoeCool/LensIQ/issues?q=is%3Aissue+Phase).
 
+## [1.1.0] - 2026-11-20
+
+### Added
+
+- Dashboard tiles have a height: **Short (½)**, **Standard** or **Tall (2×)**, next to the width setting. Two short tiles stack beside a standard one, and a later tile that fits moves up into an empty space. On a phone, tiles still size to their content. ([#54](https://github.com/BobbyJoeCool/LensIQ/issues/54))
+
+### Changed
+
+- The row panel holds your edits until you press **Save**, then sends them to Notion together. **Cancel**, ×, Escape or tapping outside with unsaved edits asks whether to save, discard or keep editing. If a property was changed in Notion in the meantime, nothing is saved and you choose whose values to keep. Inline table edits and board drags still save immediately. ([#57](https://github.com/BobbyJoeCool/LensIQ/issues/57))
+
+### Fixed
+
+- In the iPhone home-screen app, the row panel's × sat under the status bar, so the panel couldn't be closed. The panel now stays clear of the status bar and the home indicator. ([#57](https://github.com/BobbyJoeCool/LensIQ/issues/57))
+- On a dashboard, a board (or table, chart or calendar) next to a taller tile now fills its tile instead of stopping partway down. ([#54](https://github.com/BobbyJoeCool/LensIQ/issues/54))
+
 ## [1.0.0] - 2026-11-18
 
 First release. LensIQ is a self-hosted app that adds tables, boards, charts, calendars and dashboards on top of Notion databases, and writes every edit back to Notion.

@@ -4,6 +4,7 @@ import { canEdit, valueOf } from '../editing/editable';
 import type { DatabaseEditing } from '../editing/useDatabaseEditing';
 import { Cell } from './cells/Cell';
 import { CellEditor } from './editors/CellEditor';
+import { TILE_FILL } from '../views/fill';
 
 interface Props {
   columns: Column[];
@@ -42,7 +43,7 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
   };
 
   return (
-    <div className={`overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${compact ? 'max-h-96' : ''}`}>
+    <div className={`overflow-auto rounded-lg border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900 ${compact ? TILE_FILL : ''}`}>
       <table className="min-w-full border-separate border-spacing-0 text-sm" aria-label="Database rows">
         <thead>
           <tr>
