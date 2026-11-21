@@ -26,6 +26,8 @@ export const seriesColor = (slot: number) => `var(--series-${slot})`;
 export const OTHER_COLOR = 'var(--series-other)';
 export const OTHER_KEY = '__other';
 export const NONE_KEY = '__none';
+export const TOTAL_KEY = '__total';
+export const TOTAL_COLOR = 'var(--chart-total)';
 
 /** Assigns palette slots: Notion colors first, then free slots in order. */
 export function assignColors(items: { key: string; notionColor?: NotionColor }[]): Map<string, string> {
@@ -78,6 +80,11 @@ export type ChartResult =
       /** Per-category colors (pie, or a single-series bar colored by option). */
       categoryColors: Map<string, string>;
       xIsTime: boolean;
+      /**
+       * The chart's total (#52): every row on the chart counted once (count),
+       * or the sum of their values (sum). Null for average, min and max.
+       */
+      total: number | null;
     }
   | { kind: 'empty'; reason: string };
 
@@ -95,6 +102,9 @@ export function aggregationLabel(config: ChartConfig, columns: Column[]): string
   return `${AGG_LABEL[config.aggregation]} of ${y?.name ?? '?'}`;
 }
 
+/** Count and sum add up across categories; average, min and max don't. */
+export const isAdditive = (config: ChartConfig) => config.aggregation === 'count' || config.aggregation === 'sum';
+
 /** Running aggregate for one bucket. */
 class Acc {
   n = 0;
@@ -110,6 +120,13 @@ class Acc {
     this.sum += v;
     this.min = Math.min(this.min, v);
     this.max = Math.max(this.max, v);
+  }
+  merge(a: Acc) {
+    this.rows += a.rows;
+    this.n += a.n;
+    this.sum += a.sum;
+    this.min = Math.min(this.min, a.min);
+    this.max = Math.max(this.max, a.max);
   }
   value(agg: ChartConfig['aggregation']): number {
     switch (agg) {
@@ -224,10 +241,21 @@ export function chartData(rows: Row[], columns: Column[], config: ChartConfig): 
   // Aggregate into buckets[xKey][seriesKey].
   const buckets = new Map<string, Map<string, Acc>>();
   const seriesSeen = new Map<string, number>(); // series key -> rows, for "Other" folding
+  // Totals (#52): each row on the chart once, overall and per series (a multi-select x counts a row once, not per option).
+  const overall = new Acc();
+  const seriesTotals = new Map<string, Acc>();
   for (const r of rows) {
     const xs = keysFor(r, xCol, xKind, config.dateGrouping);
     const ss = splitCol ? keysFor(r, splitCol, splitKind!, config.dateGrouping) : ['value'];
     const y = yValue(r);
+    if (xs.some((x) => !(xIsTime && x === NONE_KEY))) {
+      overall.add(y, counting);
+      for (const s of ss) {
+        let acc = seriesTotals.get(s);
+        if (!acc) seriesTotals.set(s, (acc = new Acc()));
+        acc.add(y, counting);
+      }
+    }
     for (const x of xs) {
       if (xIsTime && x === NONE_KEY) continue; // undated rows don't belong on a time axis
       let row = buckets.get(x);
@@ -298,17 +326,12 @@ export function chartData(rows: Row[], columns: Column[], config: ChartConfig): 
       const ranked = [...all].sort((a, b) => (seriesSeen.get(b.key) ?? 0) - (seriesSeen.get(a.key) ?? 0));
       const keep = new Set(ranked.slice(0, MAX_SERIES - 1).map((s) => s.key));
       const folded = all.filter((s) => !keep.has(s.key)).map((s) => s.key);
-      for (const row of buckets.values()) {
+      for (const row of [...buckets.values(), seriesTotals]) {
         const other = new Acc();
         for (const k of folded) {
           const a = row.get(k);
           if (!a) continue;
-          // Merge accumulators.
-          other.rows += a.rows;
-          other.n += a.n;
-          other.sum += a.sum;
-          other.min = Math.min(other.min, a.min);
-          other.max = Math.max(other.max, a.max);
+          other.merge(a);
           row.delete(k);
         }
         if (other.rows) row.set(OTHER_KEY, other);
@@ -367,11 +390,61 @@ export function chartData(rows: Row[], columns: Column[], config: ChartConfig): 
   const optionColor = new Map((xCol.options ?? []).map((o) => [o.id, o.color]));
   const categoryColors = assignColors(data.map((p) => ({ key: p.key, notionColor: optionColor.get(p.key) })));
 
+  // Total bar (#52): last, split like the other bars, in a neutral color when there's one series.
+  const additive = isAdditive(config);
+  if (config.showTotal && additive && config.chartType === 'bar') {
+    const point: Record<string, number | string> & { key: string; label: string } = { key: TOTAL_KEY, label: 'Total' };
+    for (const s of series) point[s.key] = seriesTotals.get(s.key)?.value(config.aggregation) ?? 0;
+    data = [...data, point];
+    categoryColors.set(TOTAL_KEY, TOTAL_COLOR);
+  }
+
   return {
     kind: 'series',
     data,
     series: series.map((s) => ({ key: s.key, label: s.label, color: seriesColors.get(s.key)! })),
     categoryColors,
     xIsTime,
+    total: additive ? overall.value(config.aggregation) : null,
   };
+}
+
+export type ValueLabels = NonNullable<ChartConfig['showValues']>;
+
+/**
+ * Which value labels a chart can show (#56): percent only makes sense where
+ * values add up to a whole (count or sum, on bar and donut charts).
+ */
+export function labelModes(config: ChartConfig): ValueLabels[] {
+  if (config.chartType === 'stat') return ['off'];
+  const percent = isAdditive(config) && (config.chartType === 'bar' || config.chartType === 'pie');
+  return percent ? ['off', 'value', 'percent', 'both'] : ['off', 'value'];
+}
+
+/** The label mode actually drawn: a saved mode the chart can't show falls back to plain values. */
+export function effectiveLabels(config: ChartConfig): ValueLabels {
+  const mode = config.showValues ?? 'off';
+  return labelModes(config).includes(mode) ? mode : mode === 'off' ? 'off' : 'value';
+}
+
+/** The whole the percent labels are out of: every value on the chart, not counting the Total bar. */
+export function labelBase(result: Extract<ChartResult, { kind: 'series' }>): number {
+  return result.data
+    .filter((p) => p.key !== TOTAL_KEY)
+    .reduce((sum, p) => sum + result.series.reduce((s, ser) => s + (Number(p[ser.key]) || 0), 0), 0);
+}
+
+/** "35%", or "<1%" for a sliver, of `base`. */
+export function formatPercent(value: number, base: number): string {
+  if (!base || !value) return '0%';
+  const pct = (value / base) * 100;
+  return pct > 0 && pct < 0.5 ? '<1%' : `${Math.round(pct)}%`;
+}
+
+/** Label text for one value (#56): "6", "35%" or "6 (35%)". The Total bar always shows just its value. */
+export function valueLabel(value: number, mode: ValueLabels, base: number, fmt: (n: number) => string, isTotal = false): string {
+  if (mode === 'off') return '';
+  if (mode === 'value' || isTotal) return fmt(value);
+  if (mode === 'percent') return formatPercent(value, base);
+  return `${fmt(value)} (${formatPercent(value, base)})`;
 }

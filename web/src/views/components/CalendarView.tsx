@@ -1,14 +1,17 @@
 import { useState } from 'react';
 import { DndContext, KeyboardSensor, PointerSensor, TouchSensor, useDraggable, useDroppable, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
-import type { CalendarConfig, CellValue, Column, Row } from '@lensiq/shared';
+import type { CalendarConfig, CellValue, Column, NotionColor, Row } from '@lensiq/shared';
 import type { DatabaseEditing } from '../../editing/useDatabaseEditing';
 import { useIsDesktop } from '../../hooks';
-import { daysBetween, monthGrid, rowsByDay, shiftDate } from '../calendar';
+import { OPTION_COLORS } from '../../format';
+import { colorColumn, daysBetween, eventColor, monthGrid, rowsByDay, shiftDate } from '../calendar';
 import { dayOf } from '../query';
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const MAX_CHIPS = 3;
+const DEFAULT_CHIP = 'bg-sky-100 text-sky-950 hover:bg-sky-200 dark:bg-sky-900/60 dark:text-sky-50';
+const AGENDA_DEFAULT = 'bg-slate-100 dark:bg-slate-800';
 
 interface Props {
   columns: Column[];
@@ -39,6 +42,12 @@ export function CalendarView({ columns, rows, config, editing, onOpenRow, onCrea
     );
   }
   const editable = column.type === 'date';
+  const colorBy = colorColumn(columns, config);
+  /** Event colors (#55): the option's Notion color, or the default blue when there's no value. */
+  const chipColor = (r: Row) => {
+    const color = eventColor(r, colorBy);
+    return color ? `${OPTION_COLORS[color] ?? OPTION_COLORS.default} hover:brightness-95` : DEFAULT_CHIP;
+  };
   const title = columns.find((c) => c.type === 'title');
   const titleOf = (r: Row) => {
     const t = title ? r.cells[title.id] : undefined;
@@ -99,7 +108,7 @@ export function CalendarView({ columns, rows, config, editing, onOpenRow, onCrea
               <ul className="flex flex-col gap-1">
                 {byDay.get(d)!.map((r) => (
                   <li key={r.id}>
-                    <button type="button" onClick={() => onOpenRow(r.id)} className="min-h-11 w-full rounded-md bg-slate-100 px-2 text-left text-sm dark:bg-slate-800">
+                    <button type="button" onClick={() => onOpenRow(r.id)} data-color={eventColor(r, colorBy) ?? undefined} className={`min-h-11 w-full rounded-md px-2 text-left text-sm ${eventColor(r, colorBy) ? OPTION_COLORS[eventColor(r, colorBy) as NotionColor] : AGENDA_DEFAULT}`}>
                       {titleOf(r)}
                     </button>
                   </li>
@@ -126,7 +135,7 @@ export function CalendarView({ columns, rows, config, editing, onOpenRow, onCrea
           {weeks.flat().map((d) => (
             <Day key={d} day={d} inMonth={d >= monthStart && d <= monthEnd} isToday={d === today} compact={compact} onAdd={editable ? () => add(d) : undefined}>
               {(byDay.get(d) ?? []).slice(0, MAX_CHIPS).map((r) => (
-                <Chip key={r.id} id={`${r.id}|${d}`} label={titleOf(r)} draggable={editable} onOpen={() => onOpenRow(r.id)} />
+                <Chip key={r.id} id={`${r.id}|${d}`} label={titleOf(r)} color={eventColor(r, colorBy)} colorClass={chipColor(r)} draggable={editable} onOpen={() => onOpenRow(r.id)} />
               ))}
               {(byDay.get(d)?.length ?? 0) > MAX_CHIPS && <span className="px-1 text-xs text-slate-500">+{byDay.get(d)!.length - MAX_CHIPS} more</span>}
             </Day>
@@ -161,7 +170,7 @@ function Day({ day, inMonth, isToday, compact, onAdd, children }: { day: string;
   );
 }
 
-function Chip({ id, label, draggable, onOpen }: { id: string; label: string; draggable: boolean; onOpen: () => void }) {
+function Chip({ id, label, color, colorClass, draggable, onOpen }: { id: string; label: string; color: NotionColor | null; colorClass: string; draggable: boolean; onOpen: () => void }) {
   const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({ id, disabled: !draggable });
   return (
     <button
@@ -170,8 +179,9 @@ function Chip({ id, label, draggable, onOpen }: { id: string; label: string; dra
       {...attributes}
       {...listeners}
       onClick={onOpen}
+      data-color={color ?? undefined}
       style={transform ? { transform: `translate(${transform.x}px, ${transform.y}px)`, zIndex: 50, position: 'relative' } : undefined}
-      className={`truncate rounded bg-sky-100 px-1.5 py-0.5 text-left text-xs text-sky-950 hover:bg-sky-200 dark:bg-sky-900/60 dark:text-sky-50 ${isDragging ? 'opacity-70 shadow-lg' : ''}`}
+      className={`truncate rounded px-1.5 py-0.5 text-left text-xs ${colorClass} ${isDragging ? 'opacity-70 shadow-lg' : ''}`}
     >
       {label}
     </button>

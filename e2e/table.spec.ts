@@ -68,7 +68,7 @@ test('adding a database renders a typed table', async ({ page }) => {
 
 test('the database appears in the nav and survives a reload from cache', async ({ page }) => {
   await addJobSearch(page);
-  await expect(page.getByRole('navigation', { name: 'Databases' }).getByRole('link', { name: 'Job Search Tracker' })).toBeVisible();
+  await expect(page.getByRole('navigation', { name: 'Main' }).getByRole('link', { name: 'Job Search Tracker' })).toBeVisible();
   await page.reload();
   await expect(page.getByTestId('sync-status')).toContainText('2 rows'); // cache, not a new load
 });

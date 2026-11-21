@@ -117,6 +117,126 @@ test('chart views: bar by status with a data table, then a number tile', async (
   await expect(page.getByTestId('stat-value')).toHaveText('$145,000.00');
 });
 
+test('chart value labels show without hovering, as value, percent or both (#56)', async ({ page }) => {
+  await addJobSearch(page);
+  await addView(page, 'Chart');
+  const labels = page.locator('.chart-value-label');
+  await expect(page.locator('.recharts-surface')).toBeVisible();
+  await expect(labels).toHaveCount(0); // off by default
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('combobox', { name: 'Show values' }).selectOption({ label: 'Value and percent' });
+  await page.keyboard.press('Escape');
+  // Applied 1 and Interviewing 1 of 2 rows.
+  await expect(labels).toHaveText(['1 (50%)', '1 (50%)']);
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('radio', { name: 'Donut' }).click();
+  await page.getByRole('combobox', { name: 'Show values' }).selectOption({ label: 'Percent' });
+  await page.keyboard.press('Escape');
+  await expect(labels).toHaveText(['50%', '50%']);
+
+  await page.waitForTimeout(700); // settings save after a short pause
+  await page.reload();
+  await expect(labels).toHaveText(['50%', '50%']);
+});
+
+test('chart totals: a Total bar, the total in the donut, and in the line chart header (#52)', async ({ page }) => {
+  await addJobSearch(page);
+  await addView(page, 'Chart');
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByLabel('Total bar').click();
+  await expect(page.getByLabel('Total bar')).toBeChecked();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Show data' }).click();
+  await expect(page.getByRole('table', { name: 'Chart data' }).getByRole('row', { name: /Total/ })).toContainText('2');
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('radio', { name: 'Donut' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('chart-total')).toContainText('2');
+
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('radio', { name: 'Line' }).click();
+  await page.getByRole('combobox', { name: 'X-axis' }).selectOption({ label: 'Applied' });
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('chart-total')).toHaveText('Total: 2');
+
+  // Average has no total, so the option goes away.
+  await page.getByRole('button', { name: 'Chart settings' }).click();
+  await page.getByRole('combobox', { name: 'Y-axis' }).selectOption('avg');
+  await expect(page.getByLabel('Show total')).toHaveCount(0);
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('chart-total')).toHaveCount(0);
+});
+
+test('highlight rules color matching rows or one cell, saved with the view (#51)', async ({ page }) => {
+  await addJobSearch(page);
+  const northwind = table(page).getByRole('row').filter({ hasText: 'Northwind' });
+  const contoso = table(page).getByRole('row').filter({ hasText: 'Contoso' });
+
+  await page.getByRole('button', { name: 'Highlight' }).click();
+  await page.getByRole('button', { name: '+ Add rule' }).click();
+  const rule = page.getByRole('group', { name: 'Rule 1' });
+  await rule.getByLabel('Filter property').selectOption({ label: 'Status' });
+  await rule.getByRole('checkbox', { name: 'Interviewing' }).click();
+  await expect(rule.getByRole('checkbox', { name: 'Interviewing' })).toBeChecked();
+  await rule.getByLabel('Highlight color').selectOption('green');
+  await page.keyboard.press('Escape');
+
+  await expect(northwind).toHaveAttribute('data-highlight', 'green');
+  await expect(contoso).not.toHaveAttribute('data-highlight', /.+/);
+
+  // Just the Status cell.
+  await page.getByRole('button', { name: 'Highlight (1)' }).click();
+  await rule.getByLabel('Highlight target').selectOption({ label: 'Status cell' });
+  await page.keyboard.press('Escape');
+  await expect(northwind).not.toHaveAttribute('data-highlight', /.+/);
+  await expect(northwind.locator('td[data-highlight="green"]')).toHaveCount(1);
+  await expect(northwind.locator('td[data-highlight="green"]')).toContainText('Interviewing');
+
+  await page.waitForTimeout(700); // settings save after a short pause
+  await page.reload();
+  await expect(northwind.locator('td[data-highlight="green"]')).toContainText('Interviewing');
+
+  await page.getByRole('button', { name: 'Highlight (1)' }).click();
+  await page.getByRole('button', { name: 'Remove rule' }).click();
+  await page.keyboard.press('Escape');
+  await expect(northwind.locator('td[data-highlight]')).toHaveCount(0);
+});
+
+test('dashboards come first in the menu, the app opens on the first one, and they can be reordered (#50)', async ({ page, isMobile }) => {
+  await addJobSearch(page);
+  for (const name of ['Weekly', 'Friday Review']) {
+    await page.getByRole('button', { name: '+ New dashboard' }).click();
+    await page.getByLabel('New dashboard name').fill(name);
+    await page.getByRole('button', { name: 'Create', exact: true }).click();
+    await expect(page.getByRole('heading', { name })).toBeVisible();
+  }
+  const nav = page.getByRole('navigation', { name: 'Main' });
+  const weekly = nav.getByRole('link', { name: 'Weekly' });
+  const friday = nav.getByRole('link', { name: 'Friday Review' });
+  const db = nav.getByRole('link', { name: 'Job Search Tracker' });
+  const before = async (a: typeof db, b: typeof db) => {
+    const [ba, bb] = [(await a.boundingBox())!, (await b.boundingBox())!];
+    return isMobile ? ba.x < bb.x : ba.y < bb.y; // a sideways bar on a phone, a column on desktop
+  };
+  expect(await before(friday, db)).toBe(true); // dashboards above databases
+  expect(await before(weekly, friday)).toBe(true);
+
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Weekly' })).toBeVisible(); // opens on the first dashboard
+
+  if (!isMobile) {
+    await friday.hover();
+    await nav.getByRole('button', { name: 'Move Friday Review up' }).click();
+    await expect(async () => expect(await before(friday, weekly)).toBe(true)).toPass();
+    await page.goto('/');
+    await page.reload();
+    await expect(page.getByRole('heading', { name: 'Friday Review' })).toBeVisible();
+  }
+});
+
 test('rename, duplicate and delete views', async ({ page }) => {
   await addJobSearch(page);
   const tabs = page.getByRole('navigation', { name: 'Views' });

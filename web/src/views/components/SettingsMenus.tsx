@@ -1,6 +1,10 @@
 import type { BoardConfig, CalendarConfig, ChartConfig, ChartType, Column, Row, TableConfig } from '@lensiq/shared';
 import { Popover, SelectField, Toggle, smallButton } from '../../components/ui';
 import { columnKind } from '../query';
+import { COLOR_BY_TYPES, colorColumn } from '../calendar';
+import { effectiveLabels, isAdditive, labelModes, type ValueLabels } from '../chart';
+
+const VALUE_LABELS: Record<ValueLabels, string> = { off: 'Off', value: 'Value', percent: 'Percent', both: 'Value and percent' };
 
 /** Table: show or hide properties. The title always shows. */
 export function PropertiesMenu({ columns, config, onChange }: { columns: Column[]; config: TableConfig; onChange: (c: TableConfig) => void }) {
@@ -35,6 +39,7 @@ export function PropertiesMenu({ columns, config, onChange }: { columns: Column[
 /** Calendar: which date property places rows. */
 export function CalendarSettings({ columns, config, onChange }: { columns: Column[]; config: CalendarConfig; onChange: (c: CalendarConfig) => void }) {
   const dates = columns.filter((c) => c.type === 'date' || c.type === 'created_time' || c.type === 'last_edited_time');
+  const colorable = columns.filter((c) => COLOR_BY_TYPES.has(c.type));
   return (
     <Popover label="Calendar settings">
       {() => (
@@ -44,6 +49,12 @@ export function CalendarSettings({ columns, config, onChange }: { columns: Colum
             value={config.dateColumn}
             options={[{ value: '', label: dates.length ? 'Choose a date property' : 'No date properties' }, ...dates.map((c) => ({ value: c.id, label: c.name }))]}
             onChange={(dateColumn) => onChange({ ...config, dateColumn })}
+          />
+          <SelectField
+            label="Color by"
+            value={colorColumn(columns, config)?.id ?? null}
+            options={[{ value: '', label: 'None' }, ...colorable.map((c) => ({ value: c.id, label: c.name }))]}
+            onChange={(colorBy) => onChange({ ...config, colorBy })}
           />
           <p className="text-xs text-slate-500">Drag a row to another day to change its date. Created and edited times can't be changed.</p>
         </div>
@@ -189,7 +200,16 @@ export function ChartSettings({ columns, rows, config, onChange }: { columns: Co
               onChange={(v) => set({ sortBy: v ?? 'x' })}
             />
           )}
+          {t !== 'stat' && (
+            <SelectField
+              label="Show values"
+              value={effectiveLabels(config)}
+              options={labelModes(config).map((m) => ({ value: m, label: VALUE_LABELS[m] }))}
+              onChange={(v) => set({ showValues: v ?? 'off' })}
+            />
+          )}
           <div className="col-span-2 grid grid-cols-2 gap-x-3">
+            {t !== 'stat' && isAdditive(config) && <Toggle label={t === 'bar' ? 'Total bar' : 'Show total'} checked={!!config.showTotal} onChange={(showTotal) => set({ showTotal })} />}
             {t === 'bar' && <Toggle label="Horizontal" checked={config.horizontal} onChange={(horizontal) => set({ horizontal })} />}
             {(t === 'bar' || t === 'area') && config.splitBy && <Toggle label="Stacked" checked={config.stacked} onChange={(stacked) => set({ stacked })} />}
             {(t === 'line' || t === 'area') && xIsDate && <Toggle label="Cumulative" checked={config.cumulative} onChange={(cumulative) => set({ cumulative })} />}

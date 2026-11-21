@@ -26,7 +26,9 @@ export function defaultConfig(type: ViewType, schema: Schema): ViewConfig {
   const base = { filters: [], filterMode: 'and' as const, sorts: [] };
   const firstOf = (...types: string[]) => schema.columns.find((c) => types.includes(c.type))?.id ?? null;
   if (type === 'table') return { ...base, hidden: [] } satisfies TableConfig;
-  if (type === 'calendar') return { ...base, dateColumn: firstOf('date', 'created_time', 'last_edited_time') } satisfies CalendarConfig;
+  if (type === 'calendar') {
+    return { ...base, dateColumn: firstOf('date', 'created_time', 'last_edited_time'), colorBy: firstOf('status') } satisfies CalendarConfig;
+  }
   if (type === 'board') {
     return { ...base, groupBy: firstOf('status', 'select'), cardFields: [], hideEmptyGroups: false } satisfies BoardConfig;
   }
@@ -78,6 +80,7 @@ interface DashboardRecord {
   id: string;
   name: string;
   tiles: string;
+  position: number;
   created_at: string;
   updated_at: string;
 }
@@ -96,6 +99,7 @@ const toView = (r: ViewRecord): View => ({
 const toDashboard = (r: DashboardRecord): Dashboard => ({
   id: r.id,
   name: r.name,
+  position: r.position,
   tiles: JSON.parse(r.tiles) as DashboardTile[],
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -180,7 +184,7 @@ export class DashboardRepo {
   constructor(private readonly db: Database.Database) {}
 
   list(): Dashboard[] {
-    return (this.db.prepare(`SELECT * FROM dashboards ORDER BY created_at`).all() as DashboardRecord[]).map(toDashboard);
+    return (this.db.prepare(`SELECT * FROM dashboards ORDER BY position, created_at`).all() as DashboardRecord[]).map(toDashboard);
   }
 
   get(id: string): Dashboard {
@@ -192,13 +196,14 @@ export class DashboardRepo {
   create(name: string): Dashboard {
     const id = randomUUID();
     const now = new Date().toISOString();
+    const max = this.db.prepare(`SELECT MAX(position) AS m FROM dashboards`).get() as { m: number | null };
     this.db
-      .prepare(`INSERT INTO dashboards (id, name, tiles, created_at, updated_at) VALUES (?, ?, '[]', ?, ?)`)
-      .run(id, cleanName(name, 'dashboard'), now, now);
+      .prepare(`INSERT INTO dashboards (id, name, tiles, position, created_at, updated_at) VALUES (?, ?, '[]', ?, ?, ?)`)
+      .run(id, cleanName(name, 'dashboard'), (max.m ?? -1) + 1, now, now);
     return this.get(id);
   }
 
-  update(id: string, patch: { name?: string; tiles?: DashboardTile[] }, viewExists: (viewId: string) => boolean): Dashboard {
+  update(id: string, patch: { name?: string; tiles?: DashboardTile[]; position?: number }, viewExists: (viewId: string) => boolean): Dashboard {
     const d = this.get(id);
     const name = patch.name !== undefined ? cleanName(patch.name, 'dashboard') : d.name;
     let tiles = d.tiles;
@@ -216,10 +221,22 @@ export class DashboardRepo {
         };
       });
     }
-    this.db
-      .prepare(`UPDATE dashboards SET name = ?, tiles = ?, updated_at = ? WHERE id = ?`)
-      .run(name, JSON.stringify(tiles), new Date().toISOString(), id);
+    this.db.transaction(() => {
+      if (patch.position !== undefined && patch.position !== d.position) this.move(d, patch.position);
+      this.db
+        .prepare(`UPDATE dashboards SET name = ?, tiles = ?, updated_at = ? WHERE id = ?`)
+        .run(name, JSON.stringify(tiles), new Date().toISOString(), id);
+    })();
     return this.get(id);
+  }
+
+  /** Moves a dashboard to a new index in the sidebar and renumbers the rest (#50). */
+  private move(dashboard: Dashboard, to: number): void {
+    const others = this.list().filter((x) => x.id !== dashboard.id);
+    const index = Math.max(0, Math.min(Math.trunc(to), others.length));
+    others.splice(index, 0, dashboard);
+    const set = this.db.prepare(`UPDATE dashboards SET position = ? WHERE id = ?`);
+    others.forEach((x, i) => set.run(i, x.id));
   }
 
   delete(id: string): void {

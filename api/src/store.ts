@@ -15,7 +15,7 @@ export interface NewDatabase {
   schema: Schema;
 }
 
-const MIGRATIONS: string[] = [
+export const MIGRATIONS: string[] = [
   // v1: row cache and connected databases. Views and dashboards arrive in Phase 3.
   `
   CREATE TABLE databases (
@@ -89,6 +89,14 @@ const MIGRATIONS: string[] = [
     data_source_id TEXT PRIMARY KEY,
     fetched_at     TEXT NOT NULL,
     available      INTEGER NOT NULL            -- 0 when Notion refused (not shared)
+  );
+  `,
+  // v5 (v1.2.0, #50): dashboards have an order in the sidebar; existing ones keep creation order.
+  `
+  ALTER TABLE dashboards ADD COLUMN position INTEGER NOT NULL DEFAULT 0;
+  UPDATE dashboards SET position = (
+    SELECT COUNT(*) FROM dashboards d2
+    WHERE d2.created_at < dashboards.created_at OR (d2.created_at = dashboards.created_at AND d2.id < dashboards.id)
   );
   `,
 ];

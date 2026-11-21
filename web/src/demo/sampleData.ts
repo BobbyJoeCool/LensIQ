@@ -185,28 +185,40 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     updatedAt: iso,
   });
   const views: View[] = [
-    view('v-jobs-table', JOBS_ID, 'All applications', 'table', { ...base, sorts: [{ columnId: 'applied', direction: 'desc' }], hidden: ['posting'] }),
+    view('v-jobs-table', JOBS_ID, 'All applications', 'table', {
+      ...base,
+      sorts: [{ columnId: 'applied', direction: 'desc' }],
+      hidden: ['posting'],
+      // Conditional highlighting (#51): offers green, rejections gray, a next step in the past orange, one this week yellow.
+      highlights: [
+        { id: 'h1', filters: [{ id: 'hf1', columnId: 'status', op: 'any_of', value: ['st-offer'] }], filterMode: 'and', color: 'green', columnId: null },
+        { id: 'h2', filters: [{ id: 'hf2', columnId: 'status', op: 'any_of', value: ['st-rejected'] }], filterMode: 'and', color: 'gray', columnId: null },
+        { id: 'h3', filters: [{ id: 'hf3', columnId: 'next', op: 'past_days', value: 30 }], filterMode: 'and', color: 'orange', columnId: 'next' },
+        { id: 'h4', filters: [{ id: 'hf4', columnId: 'next', op: 'next_days', value: 7 }], filterMode: 'and', color: 'yellow', columnId: 'next' },
+      ],
+    }),
     view('v-jobs-board', JOBS_ID, 'Pipeline', 'board', { ...base, groupBy: 'status', cardFields: ['role', 'next'], hideEmptyGroups: false }),
-    view('v-jobs-weekly', JOBS_ID, 'Applications per week', 'chart', { ...chartBase, chartType: 'bar', x: 'applied', dateGrouping: 'week', splitBy: 'remote', stacked: true }),
-    view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status' }),
+    view('v-jobs-weekly', JOBS_ID, 'Applications per week', 'chart', { ...chartBase, chartType: 'bar', x: 'applied', dateGrouping: 'week', splitBy: 'remote', stacked: true, showValues: 'value' }),
+    view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status', showValues: 'value', showTotal: true }),
     view('v-jobs-salary', JOBS_ID, 'Average salary', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'avg', y: 'salary', filters: [{ id: 'f1', columnId: 'status', op: 'none_of', value: ['st-rejected', 'st-wish'] }] }),
     view('v-jobs-next', JOBS_ID, 'Next step this week', 'table', { ...base, filters: [{ id: 'f2', columnId: 'next', op: 'next_days', value: 7 }], sorts: [{ columnId: 'next', direction: 'asc' }], hidden: ['posting', 'tags', 'contacts', 'salary', 'days', 'remote'] }),
-    view('v-jobs-cal', JOBS_ID, 'Next steps', 'calendar', { ...base, dateColumn: 'next' }),
+    view('v-jobs-cal', JOBS_ID, 'Next steps', 'calendar', { ...base, dateColumn: 'next', colorBy: 'status' }),
     view('v-contacts', CONTACTS_ID, 'Contacts', 'table', { ...base, hidden: [] }),
     view('v-bills-table', BILLS_ID, 'All bills', 'table', { ...base, sorts: [{ columnId: 'due', direction: 'asc' }], hidden: [] }),
     view('v-bills-due', BILLS_ID, 'Due in 7 days', 'table', { ...base, filters: [{ id: 'f3', columnId: 'due', op: 'next_days', value: 7 }, { id: 'f4', columnId: 'paid', op: 'unchecked' }], sorts: [{ columnId: 'due', direction: 'asc' }], hidden: ['autopay'] }),
-    view('v-bills-cal', BILLS_ID, 'Calendar', 'calendar', { ...base, dateColumn: 'due' }),
-    view('v-bills-cat', BILLS_ID, 'Spend by category', 'chart', { ...chartBase, chartType: 'bar', x: 'category', aggregation: 'sum', y: 'amount', sortBy: 'value', horizontal: true }),
+    view('v-bills-cal', BILLS_ID, 'Calendar', 'calendar', { ...base, dateColumn: 'due', colorBy: 'category' }),
+    view('v-bills-cat', BILLS_ID, 'Spend by category', 'chart', { ...chartBase, chartType: 'bar', x: 'category', aggregation: 'sum', y: 'amount', sortBy: 'value', horizontal: true, showValues: 'both' }),
     view('v-bills-total', BILLS_ID, 'Unpaid total', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'sum', y: 'amount', filters: [{ id: 'f5', columnId: 'paid', op: 'unchecked' }] }),
   ];
   const dashboards: Dashboard[] = [
     {
       id: 'd-jobs',
       name: 'Job Search',
+      position: 0,
       tiles: [
         { id: 't1', viewId: 'v-jobs-board', size: 'full' },
-        { id: 't2', viewId: 'v-jobs-weekly', size: 'large' },
-        { id: 't3', viewId: 'v-jobs-salary', size: 'small' },
+        { id: 't2', viewId: 'v-jobs-weekly', size: 'large', height: 'short' },
+        { id: 't3', viewId: 'v-jobs-salary', size: 'small', height: 'short' },
         { id: 't4', viewId: 'v-jobs-status', size: 'medium' },
         { id: 't5', viewId: 'v-jobs-next', size: 'medium' },
       ],
@@ -216,9 +228,10 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     {
       id: 'd-friday',
       name: 'Friday Review',
+      position: 1,
       tiles: [
         { id: 't6', viewId: 'v-bills-due', size: 'large' },
-        { id: 't7', viewId: 'v-bills-total', size: 'small' },
+        { id: 't7', viewId: 'v-bills-total', size: 'small', height: 'short' },
         { id: 't8', viewId: 'v-bills-cat', size: 'medium' },
         { id: 't9', viewId: 'v-bills-cal', size: 'medium' },
       ],

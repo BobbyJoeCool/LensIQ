@@ -266,9 +266,28 @@ interface ViewConfigBase {
   sorts: Sort[];
 }
 
+/** Soft background colors for highlight rules (#51), readable in light and dark mode. */
+export type HighlightColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray';
+
+/**
+ * A table highlight rule (#51): rows matching its conditions (built like
+ * filters) get a background color, on the whole row or on one column's cell.
+ * A rule with no complete conditions highlights nothing.
+ */
+export interface HighlightRule {
+  id: string;
+  filters: Filter[];
+  filterMode: 'and' | 'or';
+  color: HighlightColor;
+  /** The column whose cell is colored, or null for the whole row. */
+  columnId: string | null;
+}
+
 export interface TableConfig extends ViewConfigBase {
   /** Column IDs hidden in this view. New columns show by default. */
   hidden: string[];
+  /** Highlight rules in order; when several match, the first wins (#51). Missing means none. */
+  highlights?: HighlightRule[];
 }
 
 export interface BoardConfig extends ViewConfigBase {
@@ -301,11 +320,28 @@ export interface ChartConfig extends ViewConfigBase {
   sortBy: 'x' | 'value';
   /** Bar/pie: hide categories with no rows. */
   hideEmpty: boolean;
+  /**
+   * Values written on the chart without hovering (#56). Percent is each
+   * value's share of the whole chart; it's offered for count and sum on bar
+   * and donut charts. Missing means off.
+   */
+  showValues?: 'off' | 'value' | 'percent' | 'both';
+  /**
+   * A total (#52): an extra Total bar on bar charts, the total in the middle
+   * of a donut, and in the header of line and area charts. Count and sum only.
+   */
+  showTotal?: boolean;
 }
 
 export interface CalendarConfig extends ViewConfigBase {
   /** A date column. Null until chosen. */
   dateColumn: string | null;
+  /**
+   * A status or select column whose option color colors each event (#55).
+   * Null shows every event in the default color. Missing (views saved before
+   * v1.2.0) means the first status column, if any.
+   */
+  colorBy?: string | null;
 }
 
 export type ViewConfig = TableConfig | BoardConfig | ChartConfig | CalendarConfig;
@@ -365,6 +401,8 @@ export interface DashboardTile {
 export interface Dashboard {
   id: string;
   name: string;
+  /** Order in the sidebar (#50); the first dashboard is where the app opens. */
+  position: number;
   /** Tiles in order; the grid flows them left to right, one column on a phone. */
   tiles: DashboardTile[];
   createdAt: string;
@@ -395,4 +433,6 @@ export interface ImportResult {
 export interface UpdateDashboardRequest {
   name?: string;
   tiles?: DashboardTile[];
+  /** Move to this index in the sidebar order (#50). */
+  position?: number;
 }

@@ -2,7 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import type { BoardConfig, ChartConfig, Dashboard, View } from '@lensiq/shared';
 import { buildServer } from '../src/server.js';
-import { Store } from '../src/store.js';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import Database from 'better-sqlite3';
+import { MIGRATIONS, Store } from '../src/store.js';
 import { defaultConfig } from '../src/views.js';
 import { FixtureNotionSource, JOB_SEARCH_DB_ID, JOB_SEARCH_DS_ID } from './fixtures/fixtureSource.js';
 
@@ -96,6 +100,36 @@ describe('dashboards', () => {
     expect((await app.inject({ method: 'GET', url: `/api/dashboards/${dash.id}` })).statusCode).toBe(404);
   });
 
+  it('keeps dashboards in sidebar order: new ones go last, and they can be moved (#50)', async () => {
+    const make = async (name: string) => (await app.inject({ method: 'POST', url: '/api/dashboards', payload: { name } })).json<Dashboard>();
+    const [a, b, c] = [await make('A'), await make('B'), await make('C')];
+    expect([a.position, b.position, c.position]).toEqual([0, 1, 2]);
+    const names = async () => (await app.inject({ method: 'GET', url: '/api/dashboards' })).json<Dashboard[]>().map((d) => `${d.name}${d.position}`);
+
+    expect((await app.inject({ method: 'PATCH', url: `/api/dashboards/${c.id}`, payload: { position: 0 } })).statusCode).toBe(200);
+    expect(await names()).toEqual(['C0', 'A1', 'B2']);
+    await app.inject({ method: 'PATCH', url: `/api/dashboards/${c.id}`, payload: { position: 99 } }); // past the end: last
+    expect(await names()).toEqual(['A0', 'B1', 'C2']);
+    expect((await app.inject({ method: 'PATCH', url: `/api/dashboards/${a.id}`, payload: { position: -1 } })).statusCode).toBe(400);
+  });
+
+  it('gives dashboards from before v1.2.0 their creation order when the database is upgraded (#50)', () => {
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'lensiq-')), 'old.db');
+    const old = new Database(file);
+    for (const m of MIGRATIONS.slice(0, 4)) old.exec(m);
+    old.pragma('user_version = 4');
+    const insert = old.prepare(`INSERT INTO dashboards (id, name, tiles, created_at, updated_at) VALUES (?, ?, '[]', ?, ?)`);
+    insert.run('second', 'Second', '2026-11-02T00:00:00Z', '2026-11-02T00:00:00Z');
+    insert.run('first', 'First', '2026-11-01T00:00:00Z', '2026-11-01T00:00:00Z');
+    old.close();
+
+    const store = new Store(file);
+    const rows = store.db.prepare(`SELECT id, position FROM dashboards ORDER BY position`).all();
+    expect(rows).toEqual([{ id: 'first', position: 0 }, { id: 'second', position: 1 }]);
+    store.close();
+    fs.rmSync(path.dirname(file), { recursive: true, force: true });
+  });
+
   it('refuses tiles for views that do not exist and empty names', async () => {
     const dash = (await app.inject({ method: 'POST', url: '/api/dashboards', payload: { name: 'X' } })).json<Dashboard>();
     const bad = await app.inject({ method: 'PATCH', url: `/api/dashboards/${dash.id}`, payload: { tiles: [{ viewId: 'ghost' }] } });
@@ -116,7 +150,7 @@ describe('calendar views', () => {
   it('creates a calendar view on the first date column', async () => {
     const res = await createView({ databaseId: DS, name: 'Calendar', type: 'calendar' });
     expect(res.statusCode).toBe(201);
-    expect(res.json<View>().config).toMatchObject({ dateColumn: 'appl' });
+    expect(res.json<View>().config).toMatchObject({ dateColumn: 'appl', colorBy: 'stat' }); // colored by the first status column (#55)
   });
 });
 

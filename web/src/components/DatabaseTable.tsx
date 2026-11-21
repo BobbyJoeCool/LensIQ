@@ -1,10 +1,11 @@
 import { useState, type KeyboardEvent } from 'react';
-import type { Column, Row } from '@lensiq/shared';
+import type { Column, HighlightRule, Row } from '@lensiq/shared';
 import { canEdit, valueOf } from '../editing/editable';
 import type { DatabaseEditing } from '../editing/useDatabaseEditing';
 import { Cell } from './cells/Cell';
 import { CellEditor } from './editors/CellEditor';
 import { TILE_FILL } from '../views/fill';
+import { HIGHLIGHT_CLASSES, cellHighlight, rowHighlight } from '../views/highlight';
 
 interface Props {
   columns: Column[];
@@ -15,13 +16,16 @@ interface Props {
   onOpenRow?: (rowId: string) => void;
   /** Dashboard tiles: cap the height and scroll inside. */
   compact?: boolean;
+  /** Highlight rules (#51); `allColumns` lets rules test columns hidden in this view. */
+  highlights?: HighlightRule[];
+  allColumns?: Column[];
 }
 
 /**
  * Table built from the schema. The title column sticks to the left so rows
  * stay identifiable while scrolling sideways on a phone.
  */
-export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOpenRow, compact = false }: Props) {
+export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOpenRow, compact = false, highlights, allColumns }: Props) {
   const [active, setActive] = useState<{ rowId: string; columnId: string } | null>(null);
 
   if (rows.length === 0) {
@@ -61,13 +65,17 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
           </tr>
         </thead>
         <tbody>
-          {rows.map((row) => (
+          {rows.map((row) => {
+            const h = rowHighlight(row, highlights, allColumns ?? columns);
+            return (
             <tr
               key={row.id}
+              data-highlight={h.row ?? undefined}
               className={`group ${!inlineEdit && onOpenRow ? 'cursor-pointer' : ''}`}
               onClick={!inlineEdit && onOpenRow ? () => onOpenRow(row.id) : undefined}
             >
               {columns.map((col, i) => {
+                const color = cellHighlight(h, col.id);
                 const editable = inlineEdit && !!editing && canEdit(col, row.cells[col.id]);
                 const isActive = active?.rowId === row.id && active.columnId === col.id;
                 const onKeyDown = (e: KeyboardEvent) => {
@@ -83,12 +91,15 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
                     aria-label={editable ? `Edit ${col.name}` : undefined}
                     onClick={editable && !isActive ? () => startEdit(row, col) : undefined}
                     onKeyDown={editable ? onKeyDown : undefined}
+                    data-highlight={color ?? undefined}
                     className={`relative border-b border-slate-100 px-3 py-2 align-top dark:border-slate-800 ${
                       editable ? 'cursor-text hover:ring-1 hover:ring-inset hover:ring-sky-300 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-sky-500' : ''
-                    } ${
-                      i === 0
-                        ? 'sticky left-0 z-[5] min-w-40 max-w-64 bg-white font-medium group-hover:bg-slate-50 dark:bg-slate-900 dark:group-hover:bg-slate-800/60'
-                        : 'group-hover:bg-slate-50 dark:group-hover:bg-slate-800/60'
+                    } ${i === 0 ? 'sticky left-0 z-[5] min-w-40 max-w-64 font-medium' : ''} ${
+                      color
+                        ? `${HIGHLIGHT_CLASSES[color]} group-hover:brightness-95`
+                        : i === 0
+                          ? 'bg-white group-hover:bg-slate-50 dark:bg-slate-900 dark:group-hover:bg-slate-800/60'
+                          : 'group-hover:bg-slate-50 dark:group-hover:bg-slate-800/60'
                     } ${isActive ? 'z-30' : ''}`}
                   >
                     {i === 0 ? (
@@ -142,7 +153,8 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
                 );
               })}
             </tr>
-          ))}
+            );
+          })}
         </tbody>
       </table>
     </div>

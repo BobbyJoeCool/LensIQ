@@ -74,6 +74,33 @@ test('calendar: rows on their dates, drag to move a date, + adds a row on a day 
   await expect(page.getByRole('dialog', { name: 'New row' }).getByRole('button', { name: 'Applied' })).toContainText('Oct 20, 2026');
 });
 
+test('calendar events take the color of their status; Color by None turns it off (#55)', async ({ page, isMobile }) => {
+  await addJobSearch(page);
+  await page.getByRole('button', { name: '+ Add view' }).click();
+  await page.getByRole('button', { name: /Calendar$/ }).click();
+  for (let i = 0; i < 36 && !(await page.getByRole('heading', { name: 'October 2026' }).isVisible()); i++) {
+    await page.getByRole('button', { name: 'Previous month' }).click();
+  }
+  // A new calendar colors by the first status property: Northwind Labs is Interviewing (yellow).
+  const event = isMobile
+    ? page.getByRole('list', { name: 'October agenda' }).getByRole('button', { name: 'Northwind Labs' })
+    : page.getByRole('gridcell', { name: '2026-10-01' }).getByRole('button', { name: 'Northwind Labs' });
+  await expect(event).toHaveAttribute('data-color', 'yellow');
+  await expect(event).toHaveClass(/bg-yellow-200/);
+
+  await page.getByRole('button', { name: 'Calendar settings' }).click();
+  await page.getByLabel('Color by').selectOption({ label: 'None' });
+  await page.keyboard.press('Escape');
+  await expect(event).not.toHaveAttribute('data-color', /.+/);
+  await page.waitForTimeout(700); // settings save after a short pause
+  await page.reload();
+  for (let i = 0; i < 36 && !(await page.getByRole('heading', { name: 'October 2026' }).isVisible()); i++) {
+    await page.getByRole('button', { name: 'Previous month' }).click();
+  }
+  await expect(event).toBeVisible();
+  await expect(event).not.toHaveAttribute('data-color', /.+/); // saved with the view
+});
+
 test('calendar on a phone is an agenda list', async ({ page, isMobile }) => {
   test.skip(!isMobile, 'phone layout');
   await addJobSearch(page);
