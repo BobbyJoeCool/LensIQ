@@ -3,21 +3,39 @@
  * new CellValue, or `onCancel` (Escape). Used inline in the table on desktop
  * and inside the row panel.
  */
-import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type MutableRefObject } from 'react';
 import type { CellValue, Column, SelectOption } from '@lensiq/shared';
 import { useRelationOptions } from '../../cellContext';
 import { OPTION_COLORS } from '../../format';
 import { localIso, numberToText, parseNumber, splitIso } from '../../editing/editable';
+
+/** Returned by a pending-value reader when the editor's input can't be saved as it stands (it shows why). */
+export const INVALID = Symbol('invalid');
+/** Reads what an open editor would save, without closing it: a value, INVALID, or undefined for nothing pending. */
+export type PendingReader = () => CellValue | typeof INVALID | undefined;
 
 export interface EditorProps {
   column: Column;
   value: CellValue;
   onCommit: (value: CellValue) => void;
   onCancel: () => void;
+  /**
+   * The row panel (#60) reads an open editor's unsaved input through this
+   * before it saves or closes, so choices that wait for Done aren't lost.
+   */
+  pendingRef?: MutableRefObject<PendingReader | null>;
 }
 
 const inputClass =
   'w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-sm outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-200 dark:border-slate-600 dark:bg-slate-900 dark:focus:ring-sky-900';
+
+/** Keeps `pendingRef` pointing at this editor's current reader while it's open. */
+function usePending(ref: EditorProps['pendingRef'], read: PendingReader) {
+  if (ref) ref.current = read;
+  useEffect(() => () => {
+    if (ref) ref.current = null;
+  }, [ref]);
+}
 
 export function CellEditor(props: EditorProps) {
   switch (props.column.type) {
@@ -60,9 +78,11 @@ function commitKeys(commit: () => void, onCancel: () => void, multiline = false)
   };
 }
 
-function TextEditor({ column, value, onCommit, onCancel }: EditorProps) {
-  const [text, setText] = useState(value.kind === 'text' ? value.value : '');
+function TextEditor({ column, value, onCommit, onCancel, pendingRef }: EditorProps) {
+  const initial = value.kind === 'text' ? value.value : '';
+  const [text, setText] = useState(initial);
   const done = useRef(false);
+  usePending(pendingRef, () => (done.current || text === initial ? undefined : { kind: 'text', value: text }));
   const commit = () => {
     if (done.current) return;
     done.current = true;
@@ -89,10 +109,20 @@ function TextEditor({ column, value, onCommit, onCancel }: EditorProps) {
   );
 }
 
-function NumberEditor({ column, value, onCommit, onCancel }: EditorProps) {
-  const [text, setText] = useState(numberToText(value.kind === 'number' ? value.value : null, column.numberFormat));
+function NumberEditor({ column, value, onCommit, onCancel, pendingRef }: EditorProps) {
+  const initial = numberToText(value.kind === 'number' ? value.value : null, column.numberFormat);
+  const [text, setText] = useState(initial);
   const [error, setError] = useState<string | null>(null);
   const done = useRef(false);
+  usePending(pendingRef, () => {
+    if (done.current || text === initial) return undefined;
+    const n = parseNumber(text, column.numberFormat);
+    if (n === 'invalid') {
+      setError('Enter a number');
+      return INVALID;
+    }
+    return { kind: 'number', value: n };
+  });
   const commit = () => {
     if (done.current) return;
     const n = parseNumber(text, column.numberFormat);
@@ -129,10 +159,12 @@ function NumberEditor({ column, value, onCommit, onCancel }: EditorProps) {
   );
 }
 
-function LinkEditor({ column, value, onCommit, onCancel }: EditorProps) {
+function LinkEditor({ column, value, onCommit, onCancel, pendingRef }: EditorProps) {
   const linkType = column.type as 'url' | 'email' | 'phone_number';
-  const [text, setText] = useState(value.kind === 'link' ? (value.value ?? '') : '');
+  const initial = value.kind === 'link' ? (value.value ?? '') : '';
+  const [text, setText] = useState(initial);
   const done = useRef(false);
+  usePending(pendingRef, () => (done.current || text === initial ? undefined : { kind: 'link', value: text.trim() || null, linkType }));
   const commit = () => {
     if (done.current) return;
     done.current = true;
@@ -182,7 +214,7 @@ function Chip({ option, onRemove }: { option: SelectOption; onRemove?: () => voi
 }
 
 /** Select, status and multi-select: a searchable list of options, with "Create" for select and multi-select (Q18). */
-function OptionEditor({ column, value, onCommit, onCancel, multi }: EditorProps & { multi: boolean }) {
+function OptionEditor({ column, value, onCommit, onCancel, multi, pendingRef }: EditorProps & { multi: boolean }) {
   const options = useMemo(() => column.options ?? [], [column.options]);
   const initial: SelectOption[] =
     value.kind === 'multi_select' ? value.value : value.kind === 'select' && value.value ? [value.value] : [];
@@ -203,6 +235,9 @@ function OptionEditor({ column, value, onCommit, onCancel, multi }: EditorProps 
   ];
 
   const commitMulti = (next: SelectOption[]) => onCommit({ kind: 'multi_select', value: next });
+  // Multi-select choices wait for Done; a single select saves on pick, so nothing is pending.
+  const key = (list: SelectOption[]) => list.map((o) => o.id || o.name).join('|');
+  usePending(pendingRef, () => (multi && key(chosen) !== key(initial) ? { kind: 'multi_select', value: chosen } : undefined));
   const pick = (opt: SelectOption) => {
     if (!multi) {
       onCommit({ kind: 'select', value: opt });
@@ -303,7 +338,7 @@ function OptionEditor({ column, value, onCommit, onCancel, multi }: EditorProps 
   );
 }
 
-function DateEditor({ column, value, onCommit, onCancel }: EditorProps) {
+function DateEditor({ column, value, onCommit, onCancel, pendingRef }: EditorProps) {
   const current = value.kind === 'date' ? value.value : null;
   const start = current ? splitIso(current.start) : null;
   const end = current?.end ? splitIso(current.end) : null;
@@ -317,19 +352,26 @@ function DateEditor({ column, value, onCommit, onCancel }: EditorProps) {
   const first = useRef<HTMLInputElement>(null);
   useEffect(() => first.current?.focus(), []);
 
-  const save = () => {
-    if (!startDate) {
-      onCommit({ kind: 'date', value: null });
-      return;
-    }
+  /** The date as entered, or INVALID (with the reason shown) when the end is before the start. */
+  const read = (): CellValue | typeof INVALID => {
+    if (!startDate) return { kind: 'date', value: null };
     const s = withTime ? localIso(startDate, startTime) : startDate;
     const e = withEnd && endDate ? (withTime ? localIso(endDate, endTime) : endDate) : null;
     if (e && new Date(e).getTime() < new Date(s).getTime()) {
       setError('The end is before the start.');
-      return;
+      return INVALID;
     }
-    onCommit({ kind: 'date', value: { start: s, end: e } });
+    return { kind: 'date', value: { start: s, end: e } };
   };
+  const save = () => {
+    const v = read();
+    if (v !== INVALID) onCommit(v);
+  };
+  const unchanged = () => {
+    const v = read();
+    return v !== INVALID && JSON.stringify(v.kind === 'date' ? v.value : null) === JSON.stringify(current);
+  };
+  usePending(pendingRef, () => (unchanged() ? undefined : read()));
 
   return (
     <div
@@ -382,12 +424,16 @@ function DateEditor({ column, value, onCommit, onCancel }: EditorProps) {
 }
 
 /** Searchable picker over the related database's page titles (#30, Q20). */
-function RelationEditor({ column, value, onCommit, onCancel }: EditorProps) {
+function RelationEditor({ column, value, onCommit, onCancel, pendingRef }: EditorProps) {
   const options = useRelationOptions(column);
   const norm = (id: string) => id.replace(/-/g, '');
-  const [chosen, setChosen] = useState<string[]>(value.kind === 'relation' ? value.value : []);
+  const initial = value.kind === 'relation' ? value.value : [];
+  const [chosen, setChosen] = useState<string[]>(initial);
   const [query, setQuery] = useState('');
   const commit = (ids: string[]) => onCommit({ kind: 'relation', value: ids, hasMore: false });
+  // Links wait for Done; unchanged links aren't pending (so a row with more links than Notion returned isn't rewritten).
+  const key = (ids: string[]) => ids.map(norm).join('|');
+  usePending(pendingRef, () => (key(chosen) !== key(initial) ? { kind: 'relation', value: chosen, hasMore: false } : undefined));
   const list = options.data?.options ?? [];
   const q = query.trim().toLowerCase();
   const filtered = (q ? list.filter((o) => o.title.toLowerCase().includes(q)) : list).slice(0, 50);

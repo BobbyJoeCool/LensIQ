@@ -3,7 +3,7 @@ import type { CellChange, CellValue, Column, Row } from '@lensiq/shared';
 import { canEdit, isEditableType, valueOf } from '../editing/editable';
 import type { DatabaseEditing } from '../editing/useDatabaseEditing';
 import { Cell } from './cells/Cell';
-import { CellEditor } from './editors/CellEditor';
+import { CellEditor, INVALID, type PendingReader } from './editors/CellEditor';
 
 export type PanelState = { mode: 'edit'; rowId: string } | { mode: 'create'; initial?: Record<string, CellValue> };
 
@@ -17,6 +17,15 @@ interface Props {
 }
 
 const same = (a: CellValue | undefined, b: CellValue | undefined) => JSON.stringify(a ?? { kind: 'empty' }) === JSON.stringify(b ?? { kind: 'empty' });
+
+type Changes = Record<string, { value: CellValue; expected: CellValue }>;
+
+/** Adds one edited value to the panel's changes; changing it back to where it started drops it. */
+function withChange(changes: Changes, column: Column, value: CellValue, row: Row): Changes {
+  const expected = changes[column.id]?.expected ?? valueOf(column, row.cells);
+  const { [column.id]: _drop, ...rest } = changes;
+  return same(value, expected) ? rest : { ...rest, [column.id]: { value, expected } };
+}
 
 const secondaryButton = 'min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
 const primaryButton = 'min-h-11 rounded-lg bg-sky-600 px-4 text-sm font-medium text-white hover:bg-sky-700 disabled:opacity-50';
@@ -35,17 +44,40 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
   const initial = state.mode === 'create' ? (state.initial ?? {}) : {};
   const [draft, setDraft] = useState<Record<string, CellValue>>(initial);
   /** Edit mode: changed properties, with the value each one started from (for the conflict check). */
-  const [changes, setChanges] = useState<Record<string, { value: CellValue; expected: CellValue }>>({});
+  const [changes, setChanges] = useState<Changes>({});
+  /** The open property editor's unsaved input (#60): read before saving or closing so it isn't lost. */
+  const pendingRef = useRef<PendingReader | null>(null);
   const [conflicts, setConflicts] = useState<{ columnId: string; current: CellValue }[] | null>(null);
   const [active, setActive] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [busy, setBusy] = useState(false);
 
-  const dirty = creating ? JSON.stringify(draft) !== JSON.stringify(initial) : Object.keys(changes).length > 0;
+  const isDirty = (d: Record<string, CellValue>, c: Changes) => (creating ? JSON.stringify(d) !== JSON.stringify(initial) : Object.keys(c).length > 0);
+  const dirty = isDirty(draft, changes);
+
+  /**
+   * Folds the open editor's unsaved input into the draft or changes (#60) and
+   * closes the editor. Returns the result to use right away (state updates
+   * later), or null when the input is invalid and the editor stays open.
+   */
+  const takePending = (): { draft: Record<string, CellValue>; changes: Changes } | null => {
+    const column = active ? columns.find((c) => c.id === active) : undefined;
+    const value = column ? pendingRef.current?.() : undefined;
+    if (value === INVALID) return null;
+    if (!column || value === undefined) return { draft, changes };
+    const next = creating ? { draft: { ...draft, [column.id]: value }, changes } : { draft, changes: withChange(changes, column, value, row!) };
+    setDraft(next.draft);
+    setChanges(next.changes);
+    setActive(null);
+    return next;
+  };
+
   const requestClose = () => {
     if (busy) return;
-    if (dirty) setConfirmClose(true);
+    const taken = takePending();
+    if (!taken) return;
+    if (isDirty(taken.draft, taken.changes)) setConfirmClose(true);
     else onClose();
   };
   const requestCloseRef = useRef(requestClose);
@@ -74,23 +106,18 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
 
   const commit = (column: Column, value: CellValue) => {
     setActive(null);
-    if (creating) {
-      setDraft((d) => ({ ...d, [column.id]: value }));
-      return;
-    }
-    setChanges((c) => {
-      const expected = c[column.id]?.expected ?? valueOf(column, row!.cells);
-      const { [column.id]: _drop, ...rest } = c;
-      return same(value, expected) ? rest : { ...rest, [column.id]: { value, expected } };
-    });
+    if (creating) setDraft((d) => ({ ...d, [column.id]: value }));
+    else setChanges((c) => withChange(c, column, value, row!));
   };
 
-  /** Saves the panel. Returns true when it can close. */
+  /** Saves the panel, including an editor that's still open. Returns true when it can close. */
   const save = async (force = false): Promise<boolean> => {
+    const taken = takePending();
+    if (!taken) return false;
     setBusy(true);
     try {
-      if (creating) return !!(await editing.createRow(draft));
-      const list: CellChange[] = Object.entries(changes).map(([columnId, c]) => ({ columnId, value: c.value, expected: c.expected }));
+      if (creating) return !!(await editing.createRow(taken.draft));
+      const list: CellChange[] = Object.entries(taken.changes).map(([columnId, c]) => ({ columnId, value: c.value, expected: c.expected }));
       if (!list.length) return true;
       const result = await editing.saveRow(row!, list, { force });
       if (result.ok) {
@@ -156,7 +183,7 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
                 </dt>
                 <dd className="min-w-0">
                   {active === column.id ? (
-                    <CellEditor column={column} value={value} onCommit={(v) => commit(column, v)} onCancel={() => setActive(null)} />
+                    <CellEditor column={column} value={value} onCommit={(v) => commit(column, v)} onCancel={() => setActive(null)} pendingRef={pendingRef} />
                   ) : column.type === 'checkbox' ? (
                     <label className="inline-flex min-h-11 items-center">
                       <input
@@ -246,7 +273,7 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
                 <button type="button" onClick={requestClose} className={secondaryButton}>
                   Cancel
                 </button>
-                <button type="button" disabled={busy || !dirty} onClick={() => void saveAndClose()} className={primaryButton}>
+                <button type="button" disabled={busy || (!dirty && !active)} onClick={() => void saveAndClose()} className={primaryButton}>
                   {busy ? 'Saving…' : 'Save'}
                 </button>
               </span>
