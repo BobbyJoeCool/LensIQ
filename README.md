@@ -11,14 +11,14 @@ Notion's free plan allows one chart. LensIQ keeps Notion as the data store and a
 <table>
   <tr>
     <td width="50%"><img src="docs/media/board-drag.webp" alt="Dragging a card to another status on a board updates Notion"><br><sub>Drag a card to change its status. The edit goes to Notion.</sub></td>
-    <td width="50%"><img src="docs/media/chart.webp" alt="Bar chart of applications per week, stacked by remote vs not remote"><br><sub>Charts: bar, line, area, donut and number tiles.</sub></td>
+    <td width="50%"><img src="docs/media/chart.webp" alt="Bar chart of applications per week, stacked by remote vs not remote, with each value written on its segment"><br><sub>Charts: bar, line, area, donut and number tiles, with values and totals.</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/media/table.webp" alt="Table view with typed cells, sorting and inline editing"><br><sub>Typed table with filters, sorts and inline editing.</sub></td>
-    <td><img src="docs/media/calendar.webp" alt="Calendar view of bills by due date"><br><sub>Calendar by any date column; drag rows between days.</sub></td>
+    <td><img src="docs/media/table.webp" alt="Table view with typed cells; next steps due this week highlighted yellow"><br><sub>Typed table with filters, sorts, highlight rules and inline editing.</sub></td>
+    <td><img src="docs/media/calendar.webp" alt="Calendar view of bills by due date, each colored by its category"><br><sub>Calendar by any date column, colored by status; drag rows between days.</sub></td>
   </tr>
   <tr>
-    <td><img src="docs/media/chart-settings.webp" alt="Chart settings menu open over a bar chart: chart type, x-axis, date grouping, y-axis, split by, stacked"><br><sub>Build and edit charts in the app, no code.</sub></td>
+    <td><img src="docs/media/chart-settings.webp" alt="Chart settings menu open over a bar chart: chart type, x-axis, date grouping, y-axis, split by, show values, total bar, stacked"><br><sub>Build and edit charts in the app, no code.</sub></td>
     <td><img src="docs/media/board.webp" alt="Board view of job applications grouped by status"><br><sub>Boards grouped by any select or status.</sub></td>
   </tr>
 </table>
@@ -32,13 +32,13 @@ Notion's free plan allows one chart. LensIQ keeps Notion as the data store and a
 
 - **Edit Notion from LensIQ.** Change cells inline, or in a row panel (with Save and Cancel) on a phone, add rows, delete rows to Notion's trash, and create new select options as you type.
 - **No silent overwrites.** Before every write, the API re-reads the page; if that cell changed in Notion meanwhile, you pick which value to keep.
-- **Notion-style views.** Table, board, chart and calendar tabs on each database, each with its own filters (and/or), sorts and settings.
-- **Dashboards.** Any number of pages mixing views from any databases, in a grid that stacks to one column on a phone.
+- **Notion-style views.** Table, board, chart and calendar tabs on each database, each with its own filters (and/or), sorts and settings. Highlight table rows or cells by rule, color calendar events by status, and write values, percents and totals right on charts.
+- **Dashboards.** Any number of pages mixing views from any databases, with tiles of any width and height, in a grid that stacks to one column on a phone. The app opens on your first dashboard.
 - **Relations and files.** Linked pages show by title and edit with a searchable picker; file links always open a fresh download URL.
 - **Installable.** Add it to the iPhone home screen as an app.
 - **Backups.** Export and import every view and dashboard as JSON.
 
-> **Status: v1.1.0, released 2026-11-20.** Everything above is built, tested and running. See the [changelog](CHANGELOG.md) and the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
+> **Status: v1.2.0, released 2026-11-20.** Everything above is built, tested and running. See the [changelog](CHANGELOG.md) and the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
 
 ## How it works
 
@@ -56,10 +56,10 @@ flowchart LR
 - **Edits go straight to Notion.** Each edit shows on screen at once, then the API reads the page from Notion and compares the edited cell with the value you started from. If someone changed that cell in Notion meanwhile, you choose which value to keep instead of overwriting it silently. Changes to other columns don't count as conflicts.
 - **Staying in sync.** Opening a database shows the cached rows instantly and does a full reload behind them. While it stays open, LensIQ asks Notion every 60 seconds for rows edited since the last sync.
 - **Views, like Notion's.** Each database has view tabs (Table, Board, Chart) with their own filters, sorts and settings, saved in SQLite. Views store column IDs, never names, so renaming a column in Notion doesn't break them; a view that points at a deleted column says so instead of crashing. Filtering, sorting and chart math run in the browser on the cached rows, so changing a view costs no Notion requests.
-- **Charts.** Bar (vertical, horizontal, stacked), line, area (with running totals), donut and number tiles; count, sum, average, min or max; dates grouped by day, week, month or year; split by a select. Colors come from an eight-slot palette checked for color-vision deficiency in light and dark mode, and each Notion option keeps its own color. Every chart has a "Show data" table.
+- **Charts.** Bar (vertical, horizontal, stacked), line, area (with running totals), donut and number tiles; count, sum, average, min or max; dates grouped by day, week, month or year; split by a select. Colors come from an eight-slot palette checked for color-vision deficiency in light and dark mode, and each Notion option keeps its own color. Every chart has a "Show data" table. Values can be written on the chart (as values, percents of the whole, or both), and count and sum charts can add a total: a Total bar, the total in the middle of a donut, or above a line.
 - **Relations and files.** Relation columns show linked page titles (read from the related database on each full sync, about one request per 100 pages) and edit with a searchable picker. Notion-hosted file links expire after an hour, so file links go through the API, which reads the page again and redirects to a fresh URL.
-- **Calendar.** Rows on a month grid by any date column; drag a row to another day (ranges keep their length), or "+" to add a row on a day. On a phone it's an agenda list.
-- **Dashboards.** Any number of named pages, each a grid of views from any databases (a third, half, two thirds or full width; short, standard or tall), stacking to one column on a phone.
+- **Calendar.** Rows on a month grid by any date column; drag a row to another day (ranges keep their length), or "+" to add a row on a day. Events can take the color of a status or select property. On a phone it's an agenda list.
+- **Dashboards.** Any number of named pages, each a grid of views from any databases (a third, half, two thirds or full width; short, standard or tall), stacking to one column on a phone. Dashboards come first in the menu, in an order you set, and `#/` opens the first one.
 - **Rate limit.** Every Notion request goes through one limiter that spaces requests about 400 ms apart (≈2.5/s, under Notion's 3/s average). The Notion SDK retries 429 responses, honoring `Retry-After`.
 - Every `/api` request must carry a valid Cloudflare Access JWT, so the app can't be reached by going around Cloudflare.
 - **The public demo** is the same React app built with `VITE_DEMO=1`: a small in-browser server (`web/src/demo/`) answers its `/api` calls from fictional sample data, so it needs no Notion token or backend and is published to GitHub Pages by a workflow on every push to `main`. The demo code isn't in the normal build.
@@ -137,7 +137,7 @@ npm run build:demo   # static demo in web/dist-demo
 | `GET` | `/api/views?databaseId=` | Views of a database in tab order (a default Table view is created the first time), or every view |
 | `POST` / `PATCH` / `DELETE` | `/api/views`, `/api/views/:id` | Create a view (`databaseId`, `name`, `type`, optional `config`); change its name, settings or tab position; delete it (and its dashboard tiles) |
 | `GET` / `POST` | `/api/dashboards` | List or create dashboards |
-| `GET` / `PATCH` / `DELETE` | `/api/dashboards/:id` | One dashboard; rename it or replace its tiles (`{ viewId, size, height }` in order); delete it |
+| `GET` / `PATCH` / `DELETE` | `/api/dashboards/:id` | One dashboard; rename it, replace its tiles (`{ viewId, size, height }` in order) or move it in the menu (`position`); delete it |
 | `GET` | `/api/export` | Every view and dashboard as one JSON file |
 | `POST` | `/api/import` | Add the views and dashboards from an export (databases matched by Notion ID; others skipped) |
 

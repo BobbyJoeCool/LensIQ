@@ -189,11 +189,12 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
       ...base,
       sorts: [{ columnId: 'applied', direction: 'desc' }],
       hidden: ['posting'],
-      // Conditional highlighting (#51): offers green, rejections gray, a next step in the past orange.
+      // Conditional highlighting (#51): offers green, rejections gray, a next step in the past orange, one this week yellow.
       highlights: [
         { id: 'h1', filters: [{ id: 'hf1', columnId: 'status', op: 'any_of', value: ['st-offer'] }], filterMode: 'and', color: 'green', columnId: null },
         { id: 'h2', filters: [{ id: 'hf2', columnId: 'status', op: 'any_of', value: ['st-rejected'] }], filterMode: 'and', color: 'gray', columnId: null },
         { id: 'h3', filters: [{ id: 'hf3', columnId: 'next', op: 'past_days', value: 30 }], filterMode: 'and', color: 'orange', columnId: 'next' },
+        { id: 'h4', filters: [{ id: 'hf4', columnId: 'next', op: 'next_days', value: 7 }], filterMode: 'and', color: 'yellow', columnId: 'next' },
       ],
     }),
     view('v-jobs-board', JOBS_ID, 'Pipeline', 'board', { ...base, groupBy: 'status', cardFields: ['role', 'next'], hideEmptyGroups: false }),
@@ -216,8 +217,8 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
       position: 0,
       tiles: [
         { id: 't1', viewId: 'v-jobs-board', size: 'full' },
-        { id: 't2', viewId: 'v-jobs-weekly', size: 'large' },
-        { id: 't3', viewId: 'v-jobs-salary', size: 'small' },
+        { id: 't2', viewId: 'v-jobs-weekly', size: 'large', height: 'short' },
+        { id: 't3', viewId: 'v-jobs-salary', size: 'small', height: 'short' },
         { id: 't4', viewId: 'v-jobs-status', size: 'medium' },
         { id: 't5', viewId: 'v-jobs-next', size: 'medium' },
       ],
@@ -230,7 +231,7 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
       position: 1,
       tiles: [
         { id: 't6', viewId: 'v-bills-due', size: 'large' },
-        { id: 't7', viewId: 'v-bills-total', size: 'small' },
+        { id: 't7', viewId: 'v-bills-total', size: 'small', height: 'short' },
         { id: 't8', viewId: 'v-bills-cat', size: 'medium' },
         { id: 't9', viewId: 'v-bills-cal', size: 'medium' },
       ],

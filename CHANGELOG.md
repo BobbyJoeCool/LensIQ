@@ -2,6 +2,20 @@
 
 All notable changes to LensIQ are listed here. Versions follow [Semantic Versioning](https://semver.org/). Work before v1.0.0 is tracked in the [GitHub issues](https://github.com/BobbyJoeCool/LensIQ/issues?q=is%3Aissue+Phase).
 
+## [1.2.0] - 2026-11-20
+
+### Added
+
+- **Chart values without hovering.** A **Show values** setting writes each value on its bar, segment, slice or point, as the value, its percent of the whole chart, or both. Percent is offered for count and sum on bar and donut charts. Labels that don't fit are hidden, and line and area charts label points when there are 24 or fewer. ([#56](https://github.com/BobbyJoeCool/LensIQ/issues/56))
+- **Chart totals.** Count and sum charts can show a total: a **Total** bar at the end of a bar chart (split like the other bars), the total in the middle of a donut, or above a line or area chart. It counts each row on the chart once and follows the view's filters. ([#52](https://github.com/BobbyJoeCool/LensIQ/issues/52))
+- **Calendar colors.** A **Color by** setting colors each calendar event with the Notion color of a status or select property. New calendars color by the first status property. ([#55](https://github.com/BobbyJoeCool/LensIQ/issues/55))
+- **Conditional highlighting on tables.** A **Highlight** menu holds rules: a color, the whole row or one column's cell, and conditions built like filters (and/or). When several rules match, the first one wins, and rules can be reordered. ([#51](https://github.com/BobbyJoeCool/LensIQ/issues/51))
+
+### Changed
+
+- **Dashboards on top.** Dashboards come before databases in the menu and the phone's top bar, and LensIQ opens on the first dashboard (or the first database when there are none). Up and down buttons beside each dashboard set the order. ([#50](https://github.com/BobbyJoeCool/LensIQ/issues/50))
+- README screenshots show the new features.
+
 ## [1.1.0] - 2026-11-20
 
 ### Added
