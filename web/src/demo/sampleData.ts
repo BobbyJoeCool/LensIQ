@@ -185,7 +185,17 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     updatedAt: iso,
   });
   const views: View[] = [
-    view('v-jobs-table', JOBS_ID, 'All applications', 'table', { ...base, sorts: [{ columnId: 'applied', direction: 'desc' }], hidden: ['posting'] }),
+    view('v-jobs-table', JOBS_ID, 'All applications', 'table', {
+      ...base,
+      sorts: [{ columnId: 'applied', direction: 'desc' }],
+      hidden: ['posting'],
+      // Conditional highlighting (#51): offers green, rejections gray, a next step in the past orange.
+      highlights: [
+        { id: 'h1', filters: [{ id: 'hf1', columnId: 'status', op: 'any_of', value: ['st-offer'] }], filterMode: 'and', color: 'green', columnId: null },
+        { id: 'h2', filters: [{ id: 'hf2', columnId: 'status', op: 'any_of', value: ['st-rejected'] }], filterMode: 'and', color: 'gray', columnId: null },
+        { id: 'h3', filters: [{ id: 'hf3', columnId: 'next', op: 'past_days', value: 30 }], filterMode: 'and', color: 'orange', columnId: 'next' },
+      ],
+    }),
     view('v-jobs-board', JOBS_ID, 'Pipeline', 'board', { ...base, groupBy: 'status', cardFields: ['role', 'next'], hideEmptyGroups: false }),
     view('v-jobs-weekly', JOBS_ID, 'Applications per week', 'chart', { ...chartBase, chartType: 'bar', x: 'applied', dateGrouping: 'week', splitBy: 'remote', stacked: true, showValues: 'value' }),
     view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status', showValues: 'value', showTotal: true }),

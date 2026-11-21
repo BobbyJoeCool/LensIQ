@@ -266,9 +266,28 @@ interface ViewConfigBase {
   sorts: Sort[];
 }
 
+/** Soft background colors for highlight rules (#51), readable in light and dark mode. */
+export type HighlightColor = 'red' | 'orange' | 'yellow' | 'green' | 'blue' | 'purple' | 'gray';
+
+/**
+ * A table highlight rule (#51): rows matching its conditions (built like
+ * filters) get a background color, on the whole row or on one column's cell.
+ * A rule with no complete conditions highlights nothing.
+ */
+export interface HighlightRule {
+  id: string;
+  filters: Filter[];
+  filterMode: 'and' | 'or';
+  color: HighlightColor;
+  /** The column whose cell is colored, or null for the whole row. */
+  columnId: string | null;
+}
+
 export interface TableConfig extends ViewConfigBase {
   /** Column IDs hidden in this view. New columns show by default. */
   hidden: string[];
+  /** Highlight rules in order; when several match, the first wins (#51). Missing means none. */
+  highlights?: HighlightRule[];
 }
 
 export interface BoardConfig extends ViewConfigBase {

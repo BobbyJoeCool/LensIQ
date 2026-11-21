@@ -170,6 +170,41 @@ test('chart totals: a Total bar, the total in the donut, and in the line chart h
   await expect(page.getByTestId('chart-total')).toHaveCount(0);
 });
 
+test('highlight rules color matching rows or one cell, saved with the view (#51)', async ({ page }) => {
+  await addJobSearch(page);
+  const northwind = table(page).getByRole('row').filter({ hasText: 'Northwind' });
+  const contoso = table(page).getByRole('row').filter({ hasText: 'Contoso' });
+
+  await page.getByRole('button', { name: 'Highlight' }).click();
+  await page.getByRole('button', { name: '+ Add rule' }).click();
+  const rule = page.getByRole('group', { name: 'Rule 1' });
+  await rule.getByLabel('Filter property').selectOption({ label: 'Status' });
+  await rule.getByRole('checkbox', { name: 'Interviewing' }).click();
+  await expect(rule.getByRole('checkbox', { name: 'Interviewing' })).toBeChecked();
+  await rule.getByLabel('Highlight color').selectOption('green');
+  await page.keyboard.press('Escape');
+
+  await expect(northwind).toHaveAttribute('data-highlight', 'green');
+  await expect(contoso).not.toHaveAttribute('data-highlight', /.+/);
+
+  // Just the Status cell.
+  await page.getByRole('button', { name: 'Highlight (1)' }).click();
+  await rule.getByLabel('Highlight target').selectOption({ label: 'Status cell' });
+  await page.keyboard.press('Escape');
+  await expect(northwind).not.toHaveAttribute('data-highlight', /.+/);
+  await expect(northwind.locator('td[data-highlight="green"]')).toHaveCount(1);
+  await expect(northwind.locator('td[data-highlight="green"]')).toContainText('Interviewing');
+
+  await page.waitForTimeout(700); // settings save after a short pause
+  await page.reload();
+  await expect(northwind.locator('td[data-highlight="green"]')).toContainText('Interviewing');
+
+  await page.getByRole('button', { name: 'Highlight (1)' }).click();
+  await page.getByRole('button', { name: 'Remove rule' }).click();
+  await page.keyboard.press('Escape');
+  await expect(northwind.locator('td[data-highlight]')).toHaveCount(0);
+});
+
 test('rename, duplicate and delete views', async ({ page }) => {
   await addJobSearch(page);
   const tabs = page.getByRole('navigation', { name: 'Views' });

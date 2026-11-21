@@ -11,7 +11,9 @@ import { BoardView } from './components/BoardView';
 import { CalendarView } from './components/CalendarView';
 import { FilterMenu } from './components/FilterMenu';
 import { BoardSettings, CalendarSettings, ChartSettings, PropertiesMenu } from './components/SettingsMenus';
+import { HighlightMenu } from './components/HighlightMenu';
 import { SortMenu } from './components/SortMenu';
+import { cleanHighlights, highlightColumns } from './highlight';
 import { applyQuery } from './query';
 import { useViewActions } from './useViews';
 
@@ -28,6 +30,7 @@ export function referencedColumns(view: View): string[] {
     const c = view.config as CalendarConfig;
     return [c.dateColumn, c.colorBy].filter((x): x is string => !!x);
   }
+  if (view.type === 'table') return highlightColumns((view.config as TableConfig).highlights);
   if (view.type === 'chart') {
     const c = view.config as ChartConfig;
     return [c.chartType !== 'stat' ? c.x : null, c.aggregation !== 'count' ? c.y : null, c.splitBy].filter((x): x is string => !!x);
@@ -43,7 +46,10 @@ export function cleanConfig(view: View, columns: Column[]): ViewConfig {
     filters: view.config.filters.filter((f) => ok.has(f.columnId)),
     sorts: view.config.sorts.filter((s) => ok.has(s.columnId)),
   };
-  if (view.type === 'table') return { ...(base as TableConfig), hidden: (base as TableConfig).hidden.filter((id) => ok.has(id)) };
+  if (view.type === 'table') {
+    const c = base as TableConfig;
+    return { ...c, hidden: c.hidden.filter((id) => ok.has(id)), ...(c.highlights ? { highlights: cleanHighlights(c.highlights, ok) } : {}) };
+  }
   if (view.type === 'board') {
     const c = base as BoardConfig;
     return { ...c, groupBy: c.groupBy && ok.has(c.groupBy) ? c.groupBy : null, cardFields: c.cardFields.filter((id) => ok.has(id)) };
@@ -101,6 +107,9 @@ export function ViewHost({ view, compact = false }: { view: View; compact?: bool
           <FilterMenu columns={columns} rows={allRows} filters={config.filters} filterMode={config.filterMode} onChange={(filters, filterMode) => setConfig({ ...config, filters, filterMode })} />
           {(view.type === 'table' || view.type === 'board') && <SortMenu columns={columns} sorts={config.sorts} onChange={(sorts) => setConfig({ ...config, sorts })} />}
           {view.type === 'table' && <PropertiesMenu columns={columns} config={config as TableConfig} onChange={setConfig} />}
+          {view.type === 'table' && (
+            <HighlightMenu columns={columns} rows={allRows} rules={(config as TableConfig).highlights ?? []} onChange={(highlights) => setConfig({ ...(config as TableConfig), highlights })} />
+          )}
           {view.type === 'board' && <BoardSettings columns={columns} config={config as BoardConfig} onChange={setConfig} />}
           {view.type === 'chart' && <ChartSettings columns={columns} rows={allRows} config={config as ChartConfig} onChange={setConfig} />}
           {view.type === 'calendar' && <CalendarSettings columns={columns} config={config as CalendarConfig} onChange={setConfig} />}
@@ -141,6 +150,8 @@ export function ViewHost({ view, compact = false }: { view: View; compact?: bool
           inlineEdit={isDesktop}
           onOpenRow={openRow}
           compact={compact}
+          highlights={(config as TableConfig).highlights}
+          allColumns={columns}
         />
       )}
       {view.type === 'calendar' && <CalendarView columns={columns} rows={rows} config={config as CalendarConfig} editing={editing} onOpenRow={openRow} onCreate={create} compact={compact} />}
