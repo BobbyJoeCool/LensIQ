@@ -13,6 +13,7 @@ import type {
   ImportResult,
   Row,
   UpdateCellRequest,
+  UpdateRowRequest,
   View,
   ViewConfig,
   ViewType,
@@ -92,7 +93,7 @@ export class DemoServer {
 
   handle(method: string, url: URL, body: unknown): { status: number; body: Json } {
     const p = url.pathname.replace(/^.*?\/api\//, '/api/').split('/').filter(Boolean).map(decodeURIComponent); // ['api', ...]
-    const [, a, b, c, d2] = p;
+    const [, a, b, c, d2, e] = p;
     const ok = (data: Json, status = 200) => ({ status, body: data });
 
     if (a === 'health') return ok({ ok: true });
@@ -135,6 +136,21 @@ export class DemoServer {
         }
         const row = d.rows.find((r) => r.id === d2);
         if (!row) throw new HttpError(404, 'row_not_found', 'That row isn’t in this database. Try Refresh.');
+        if (method === 'PATCH' && e === 'cells') {
+          // Row panel Save (#57): all changes at once. Nobody else edits the demo, so there are no conflicts.
+          const req = body as UpdateRowRequest;
+          if (!req.changes?.length) throw new HttpError(400, 'bad_request', 'Nothing to save.');
+          const next = { ...row.cells };
+          for (const change of req.changes) {
+            const column = d.detail.schema.columns.find((x) => x.id === change.columnId);
+            if (!column) throw new HttpError(400, 'unknown_column', 'A column in this row no longer exists. Try Refresh.');
+            next[column.id] = this.apply(d, column, change.value);
+          }
+          row.cells = next;
+          row.lastEditedTime = new Date().toISOString();
+          const { createdTime: _c, ...pub } = row;
+          return ok(d.detail.id === JOBS_ID ? computeDays(pub as Row) : pub);
+        }
         if (method === 'PATCH') {
           const req = body as UpdateCellRequest;
           const column = d.detail.schema.columns.find((x) => x.id === req.columnId);

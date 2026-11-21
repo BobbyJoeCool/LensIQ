@@ -7,6 +7,7 @@ import type {
   RowsResponse,
   SyncMode,
   UpdateCellRequest,
+  UpdateRowRequest,
 } from '@lensiq/shared';
 import { AppError } from './errors.js';
 import type { NotionSource } from './notion/source.js';
@@ -169,6 +170,55 @@ export class SyncService {
 
     const updated = await this.writeRow(id, pageId, { [column.id]: property });
     await this.refreshSchemaIfNewOptions(id, [req.value]);
+    return toPublicRow(updated);
+  }
+
+  /**
+   * Saves several cells of one row in a single Notion update (the row panel's
+   * Save, #57). All or nothing: every value is validated and, unless `force`
+   * is set, every property is checked against Notion first; one conflict
+   * means nothing is written.
+   */
+  async updateRow(id: string, pageId: string, req: UpdateRowRequest): Promise<Row> {
+    const db = this.requireDatabase(id);
+    const cached = this.requireRow(id, pageId);
+    const ids = new Set<string>();
+    const changes = req.changes.map((change) => {
+      const column = db.schema.columns.find((c) => c.id === change.columnId);
+      if (!column) throw new AppError(400, 'unknown_column', 'A column in this row no longer exists. Try Refresh.');
+      if (ids.has(column.id)) throw new AppError(400, 'duplicate_column', `"${column.name}" is listed twice.`);
+      ids.add(column.id);
+      // Validate before touching Notion, so a bad value costs no requests.
+      return { column, change, property: toNotionProperty(column, change.value) };
+    });
+
+    let base = cached.cells;
+    let current: StoredRow | undefined;
+    if (!req.force) {
+      current = await this.readRow(id, pageId);
+      base = current.cells;
+      const conflicts = changes
+        .filter(({ column, change }) => !sameCell(base[column.id], change.expected))
+        .map(({ column }) => ({ columnId: column.id, current: base[column.id] ?? ({ kind: 'empty' } as CellValue) }));
+      if (conflicts.length) {
+        const names = conflicts.map((c) => `"${db.schema.columns.find((col) => col.id === c.columnId)!.name}"`).join(', ');
+        throw new AppError(409, 'conflict', `${names} ${conflicts.length === 1 ? 'was' : 'were'} changed in Notion since you opened this row.`, {
+          conflicts,
+          row: toPublicRow(current),
+        });
+      }
+    }
+    const toWrite = changes.filter(({ column, change }) => req.force || !sameCell(base[column.id], change.value));
+    for (const { column } of toWrite) {
+      const b = base[column.id];
+      if (b?.kind === 'text' && b.rich) {
+        throw new AppError(422, 'rich_text', `"${column.name}" has formatting or links. Edit it in Notion so nothing is lost.`);
+      }
+    }
+    if (!toWrite.length) return toPublicRow(current ?? cached); // nothing to write
+
+    const updated = await this.writeRow(id, pageId, Object.assign({}, ...toWrite.map((w) => ({ [w.column.id]: w.property }))));
+    await this.refreshSchemaIfNewOptions(id, toWrite.map((w) => w.change.value));
     return toPublicRow(updated);
   }
 

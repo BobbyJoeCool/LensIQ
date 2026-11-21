@@ -17,6 +17,7 @@ import type {
   RowsResponse,
   SyncMode,
   UpdateCellRequest,
+  UpdateRowRequest,
 } from '@lensiq/shared';
 
 export class ApiRequestError extends Error {
@@ -68,6 +69,8 @@ export const api = {
   refresh: (id: string) => request<RowsResponse>(`${db(id)}/refresh`, { method: 'POST' }),
   updateCell: (id: string, pageId: string, body: UpdateCellRequest) =>
     request<Row>(`${db(id)}/rows/${encodeURIComponent(pageId)}`, { method: 'PATCH', body: JSON.stringify(body) }),
+  updateRow: (id: string, pageId: string, body: UpdateRowRequest) =>
+    request<Row>(`${db(id)}/rows/${encodeURIComponent(pageId)}/cells`, { method: 'PATCH', body: JSON.stringify(body) }),
   createRow: (id: string, body: CreateRowRequest) =>
     request<Row>(`${db(id)}/rows`, { method: 'POST', body: JSON.stringify(body) }),
   deleteRow: (id: string, pageId: string) =>

@@ -163,6 +163,36 @@ export interface ConflictResponse {
   row: Row;
 }
 
+/** One changed property in an `UpdateRowRequest`. */
+export interface CellChange {
+  columnId: string;
+  value: CellValue;
+  /** The value Bob started editing from, for the conflict check. */
+  expected: CellValue;
+}
+
+/**
+ * Body of `PATCH /api/databases/:id/rows/:pageId/cells`: save several
+ * properties at once (the row panel's Save, #57). Every change is checked
+ * first; if any property changed in Notion, nothing is written and the API
+ * answers 409 with a `RowConflictResponse`.
+ */
+export interface UpdateRowRequest {
+  changes: CellChange[];
+  /** Skip the conflict check (overwrite with Bob's values). */
+  force?: boolean;
+}
+
+/** 409 body when one or more of the saved properties changed in Notion. */
+export interface RowConflictResponse {
+  error: 'conflict';
+  message: string;
+  /** Each property that changed in Notion, with its value there now. */
+  conflicts: { columnId: string; current: CellValue }[];
+  /** The whole row as it is now in Notion. */
+  row: Row;
+}
+
 /** Body of `POST /api/databases/:id/rows`. Cells left out stay empty. */
 export interface CreateRowRequest {
   cells: Record<string, CellValue>;
