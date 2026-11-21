@@ -35,7 +35,8 @@ export function ChartView({ columns, rows, config, compact }: Props) {
   const result = chartData(rows, columns, config);
   const yCol = config.aggregation !== 'count' ? columns.find((c) => c.id === config.y) : undefined;
   const fmt = (n: number) => (yCol ? formatNumber(Math.round(n * 100) / 100, yCol.numberFormat) : new Intl.NumberFormat().format(Math.round(n * 100) / 100));
-  const height = compact ? 240 : 360;
+  /** In a dashboard tile the chart fills the tile on desktop (#54); elsewhere it has a fixed height. */
+  const fill = compact ? 'md:min-h-0 md:flex-1 md:overflow-auto' : '';
 
   if (result.kind === 'empty') {
     return <p className="rounded-lg border border-dashed border-slate-300 p-8 text-center text-slate-500 dark:border-slate-700">{result.reason}</p>;
@@ -43,7 +44,7 @@ export function ChartView({ columns, rows, config, compact }: Props) {
 
   if (result.kind === 'stat') {
     return (
-      <figure className="flex flex-col items-start justify-center rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900" aria-label={result.label}>
+      <figure className={`flex flex-col items-start justify-center rounded-lg border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900 ${fill}`} aria-label={result.label}>
         <p className="text-sm text-slate-500">{result.label}</p>
         <p className="mt-1 text-4xl font-semibold tabular-nums" data-testid="stat-value">
           {result.value === null ? '—' : fmt(result.value)}
@@ -56,8 +57,8 @@ export function ChartView({ columns, rows, config, compact }: Props) {
   }
 
   return (
-    <figure className="rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-      <div style={{ height }} role="img" aria-label={describe(result, config)}>
+    <figure className={`flex flex-col rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900 ${fill}`}>
+      <div className={compact ? 'h-60 md:h-auto md:min-h-40 md:flex-1' : 'h-[360px]'} role="img" aria-label={describe(result, config)}>
         <ResponsiveContainer width="100%" height="100%">
           {renderChart(result, config, fmt)}
         </ResponsiveContainer>

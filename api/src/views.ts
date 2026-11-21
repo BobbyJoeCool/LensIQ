@@ -174,6 +174,7 @@ export class ViewRepo {
 }
 
 const TILE_SIZES = new Set(['small', 'medium', 'large', 'full']);
+const TILE_HEIGHTS = new Set(['short', 'standard', 'tall']);
 
 export class DashboardRepo {
   constructor(private readonly db: Database.Database) {}
@@ -207,7 +208,12 @@ export class DashboardRepo {
         if (!t || typeof t.viewId !== 'string' || !viewExists(t.viewId)) {
           throw new AppError(400, 'bad_tiles', 'A tile points at a view that doesn’t exist.');
         }
-        return { id: typeof t.id === 'string' && t.id ? t.id : randomUUID(), viewId: t.viewId, size: TILE_SIZES.has(t.size) ? t.size : 'medium' };
+        return {
+          id: typeof t.id === 'string' && t.id ? t.id : randomUUID(),
+          viewId: t.viewId,
+          size: TILE_SIZES.has(t.size) ? t.size : 'medium',
+          height: t.height && TILE_HEIGHTS.has(t.height) ? t.height : 'standard',
+        };
       });
     }
     this.db

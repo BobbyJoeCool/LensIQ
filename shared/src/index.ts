@@ -320,11 +320,16 @@ export interface UpdateViewRequest {
 }
 
 export type TileSize = 'small' | 'medium' | 'large' | 'full';
+/** Tile height on desktop: ½, 1 or 2 standard rows (#54). Phones size tiles to their content. */
+export type TileHeight = 'short' | 'standard' | 'tall';
 
 export interface DashboardTile {
   id: string;
   viewId: string;
+  /** Width. */
   size: TileSize;
+  /** Missing on tiles saved before v1.1.0; treated as `standard`. */
+  height?: TileHeight;
 }
 
 export interface Dashboard {

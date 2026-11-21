@@ -80,8 +80,16 @@ describe('dashboards', () => {
     });
     const updated = res.json<Dashboard>();
     expect(updated.name).toBe('Friday');
-    expect(updated.tiles[0]).toMatchObject({ viewId: table!.id, size: 'medium' }); // unknown size falls back
+    expect(updated.tiles[0]).toMatchObject({ viewId: table!.id, size: 'medium', height: 'standard' }); // unknown size falls back; height defaults
     expect(updated.tiles[0]!.id).toBeTruthy();
+
+    // Tile height (#54): valid heights are kept, anything else falls back to standard.
+    const heights = await app.inject({
+      method: 'PATCH',
+      url: `/api/dashboards/${dash.id}`,
+      payload: { tiles: [{ viewId: table!.id, size: 'small', height: 'short' }, { viewId: table!.id, size: 'small', height: 'tall' }, { viewId: table!.id, size: 'small', height: 'giant' }] },
+    });
+    expect(heights.json<Dashboard>().tiles.map((t) => t.height)).toEqual(['short', 'tall', 'standard']);
 
     expect((await app.inject({ method: 'GET', url: '/api/dashboards' })).json()).toHaveLength(1);
     expect((await app.inject({ method: 'DELETE', url: `/api/dashboards/${dash.id}` })).statusCode).toBe(204);

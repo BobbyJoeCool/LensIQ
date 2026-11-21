@@ -115,7 +115,7 @@ export function CalendarView({ columns, rows, config, editing, onOpenRow, onCrea
 
   return (
     <DndContext sensors={sensors} onDragEnd={onDragEnd}>
-      <div className="flex flex-col gap-2">
+      <div className={`flex flex-col gap-2 ${compact ? 'md:min-h-0 md:flex-1 md:overflow-auto' : ''}`}>
         {header}
         <div className="grid grid-cols-7 overflow-hidden rounded-lg border border-slate-200 bg-slate-200 text-sm dark:border-slate-800 dark:bg-slate-800" role="grid" aria-label={`${MONTHS[ym.m - 1]} ${ym.y}`}>
           {WEEKDAYS.map((w) => (
