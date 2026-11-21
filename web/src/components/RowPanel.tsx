@@ -34,7 +34,8 @@ const primaryButton = 'min-h-11 rounded-lg bg-sky-600 px-4 text-sm font-medium t
  * Side panel with every property of one row (Q13: how rows open on a phone,
  * and from the open icon on desktop). Also the form for a new row.
  *
- * Edits are held in the panel until Save (#57); closing with unsaved edits
+ * Edits are held in the panel until Save (#57), and properties are locked
+ * while a save is in flight so nothing typed then is lost (#61); closing with unsaved edits
  * (×, Cancel, Escape or a tap outside) asks whether to save them. The panel
  * keeps clear of the iPhone status bar and home indicator (safe-area insets),
  * so its buttons can always be tapped.
@@ -105,6 +106,7 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
   const visible = creating ? columns.filter(isEditableType) : columns;
 
   const commit = (column: Column, value: CellValue) => {
+    if (busy) return; // nothing changes while a save is in flight (#61)
     setActive(null);
     if (creating) setDraft((d) => ({ ...d, [column.id]: value }));
     else setChanges((c) => withChange(c, column, value, row!));
@@ -189,7 +191,8 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
                       <input
                         type="checkbox"
                         aria-labelledby={`prop-${column.id}`}
-                        className="h-5 w-5 accent-sky-600"
+                        disabled={busy}
+                        className="h-5 w-5 accent-sky-600 disabled:opacity-60"
                         checked={value.kind === 'boolean' && value.value}
                         onChange={(e) => commit(column, { kind: 'boolean', value: e.target.checked })}
                       />
@@ -198,8 +201,9 @@ export function RowPanel({ columns, state, row, editing, onClose }: Props) {
                     <button
                       type="button"
                       aria-labelledby={`prop-${column.id}`}
+                      disabled={busy}
                       onClick={() => setActive(column.id)}
-                      className="flex min-h-11 w-full items-center rounded-md px-2 text-left text-sm hover:bg-slate-100 dark:hover:bg-slate-800"
+                      className="flex min-h-11 w-full items-center rounded-md px-2 text-left text-sm hover:bg-slate-100 disabled:cursor-wait disabled:opacity-60 dark:hover:bg-slate-800"
                     >
                       <Cell value={value} column={column} rowId={row?.id} />
                     </button>

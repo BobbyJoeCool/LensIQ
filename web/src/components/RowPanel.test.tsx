@@ -78,3 +78,23 @@ describe('RowPanel: an editor still open when saving or closing (#60)', () => {
     expect(onClose).not.toHaveBeenCalled();
   });
 });
+
+describe('RowPanel: while a save is in flight (#61)', () => {
+  it('locks the properties until the request finishes, and unlocks them if it fails', async () => {
+    let finish!: (r: SaveRowResult) => void;
+    const { user, panel, onClose } = setup(() => new Promise<SaveRowResult>((resolve) => (finish = resolve)));
+    await user.click(within(panel).getByRole('button', { name: 'Role' }));
+    await user.clear(screen.getByLabelText('Role'));
+    await user.type(screen.getByLabelText('Role'), 'Lead{Enter}');
+    await user.click(within(panel).getByRole('button', { name: 'Save' }));
+
+    expect(within(panel).getByRole('button', { name: 'Saving…' })).toBeDisabled();
+    for (const name of [/^Company/, /^Role/, /^Tags/, /^Next step/]) expect(within(panel).getByRole('button', { name })).toBeDisabled();
+
+    finish({ ok: false }); // the save failed: the edit stays and can be changed again
+    // "Role (changed, not saved yet)": the edit is still there.
+    await waitFor(() => expect(within(panel).getByRole('button', { name: /^Role/ })).toBeEnabled());
+    expect(within(panel).getByRole('button', { name: /^Role/ })).toHaveTextContent('Lead');
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
