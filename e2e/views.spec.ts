@@ -205,6 +205,68 @@ test('highlight rules color matching rows or one cell, saved with the view (#51)
   await expect(northwind.locator('td[data-highlight]')).toHaveCount(0);
 });
 
+test('color rows by a status, with a legend so the column can be hidden; rules win (#64)', async ({ page }) => {
+  await addJobSearch(page);
+  const northwind = table(page).getByRole('row').filter({ hasText: 'Northwind' });
+  const contoso = table(page).getByRole('row').filter({ hasText: 'Contoso' });
+  const legend = page.getByTestId('color-legend');
+  await expect(legend).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Highlight' }).click();
+  await page.getByLabel('Color rows by').selectOption({ label: 'Status' });
+  await page.keyboard.press('Escape');
+  await expect(northwind).toHaveAttribute('data-highlight', 'yellow'); // Interviewing is yellow in Notion
+  await expect(contoso).toHaveAttribute('data-highlight', 'blue'); // Applied is blue
+  await expect(legend.getByRole('listitem')).toHaveText(['Applied', 'Interviewing']); // options in use, in Notion's order
+
+  // A rule wins over the option color.
+  await page.getByRole('button', { name: 'Highlight' }).click();
+  await page.getByRole('button', { name: '+ Add rule' }).click();
+  const rule = page.getByRole('group', { name: 'Rule 1' });
+  await rule.getByLabel('Filter property').selectOption({ label: 'Status' });
+  await rule.getByRole('checkbox', { name: 'Interviewing' }).click();
+  await rule.getByLabel('Highlight color').selectOption('purple');
+  await page.keyboard.press('Escape');
+  await expect(northwind).toHaveAttribute('data-highlight', 'purple');
+  await expect(contoso).toHaveAttribute('data-highlight', 'blue');
+
+  // Hide the Status column: the legend still explains the colors.
+  await page.getByRole('button', { name: 'Properties' }).click();
+  await page.getByRole('checkbox', { name: 'Status' }).click();
+  await page.keyboard.press('Escape');
+  await expect(table(page).getByRole('columnheader', { name: 'Status' })).toHaveCount(0);
+  await expect(contoso).toHaveAttribute('data-highlight', 'blue');
+  await expect(legend.getByRole('listitem')).toHaveText(['Applied', 'Interviewing']);
+
+  await page.waitForTimeout(700); // settings save after a short pause
+  await page.reload();
+  await expect(contoso).toHaveAttribute('data-highlight', 'blue');
+  await expect(legend).toBeVisible();
+
+  await page.getByRole('button', { name: 'Highlight (1)' }).click();
+  await page.getByLabel('Color rows by').selectOption({ label: 'None' });
+  await page.keyboard.press('Escape');
+  await expect(contoso).not.toHaveAttribute('data-highlight', /.+/);
+  await expect(legend).toHaveCount(0);
+});
+
+test('a long Highlight menu scrolls all the way to its last rule (#63)', async ({ page }) => {
+  await page.setViewportSize({ width: 1280, height: 640 });
+  await addJobSearch(page);
+  await page.getByRole('button', { name: 'Highlight' }).click();
+  const addRule = page.getByRole('button', { name: '+ Add rule' });
+  for (let i = 0; i < 5; i++) {
+    await addRule.scrollIntoViewIfNeeded();
+    await addRule.click();
+  }
+  await page.getByRole('button', { name: 'Remove rule' }).last().scrollIntoViewIfNeeded();
+  await expect(page.getByRole('group', { name: 'Rule 5' })).toBeInViewport({ ratio: 1 });
+  await addRule.scrollIntoViewIfNeeded();
+  await expect(addRule).toBeInViewport({ ratio: 1 });
+  const panel = await page.getByLabel('Highlight rules').locator('..').boundingBox();
+  expect(panel!.y + panel!.height).toBeLessThanOrEqual(640);
+});
+
 test('dashboards come first in the menu, the app opens on the first one, and they can be reordered (#50)', async ({ page, isMobile }) => {
   await addJobSearch(page);
   for (const name of ['Weekly', 'Friday Review']) {

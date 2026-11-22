@@ -9,7 +9,8 @@ import { OPTION_COLORS, formatDate, formatNumber } from '../../format';
 
 const Empty = () => <span className="text-slate-300 dark:text-slate-600">—</span>;
 
-function Chip({ option }: { option: SelectOption }) {
+/** A select, status or multi-select option as a colored badge. */
+export function Chip({ option }: { option: SelectOption }) {
   return (
     <span
       className={`inline-block max-w-full truncate rounded px-1.5 py-0.5 text-xs font-medium ${OPTION_COLORS[option.color] ?? OPTION_COLORS.default}`}

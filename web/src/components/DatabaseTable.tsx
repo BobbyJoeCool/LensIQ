@@ -19,13 +19,15 @@ interface Props {
   /** Highlight rules (#51); `allColumns` lets rules test columns hidden in this view. */
   highlights?: HighlightRule[];
   allColumns?: Column[];
+  /** Color rows by this status or select column's option colors (#64); rules win. */
+  colorBy?: Column;
 }
 
 /**
  * Table built from the schema. The title column sticks to the left so rows
  * stay identifiable while scrolling sideways on a phone.
  */
-export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOpenRow, compact = false, highlights, allColumns }: Props) {
+export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOpenRow, compact = false, highlights, allColumns, colorBy }: Props) {
   const [active, setActive] = useState<{ rowId: string; columnId: string } | null>(null);
 
   if (rows.length === 0) {
@@ -66,7 +68,7 @@ export function DatabaseTable({ columns, rows, editing, inlineEdit = false, onOp
         </thead>
         <tbody>
           {rows.map((row) => {
-            const h = rowHighlight(row, highlights, allColumns ?? columns);
+            const h = rowHighlight(row, highlights, allColumns ?? columns, undefined, colorBy);
             return (
             <tr
               key={row.id}

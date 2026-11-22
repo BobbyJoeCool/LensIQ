@@ -1,5 +1,6 @@
 import type { Column, HighlightColor, HighlightRule, Row } from '@lensiq/shared';
-import { Field, Popover, fieldClass, smallButton } from '../../components/ui';
+import { Field, Popover, SelectField, fieldClass, smallButton } from '../../components/ui';
+import { COLOR_BY_TYPES } from '../calendar';
 import { HIGHLIGHT_CLASSES, HIGHLIGHT_LABELS } from '../highlight';
 import { FilterList, newFilter } from './FilterMenu';
 
@@ -11,14 +12,19 @@ interface Props {
   rows: Row[];
   rules: HighlightRule[];
   onChange: (rules: HighlightRule[]) => void;
+  /** Color rows by (#64): a status or select column ID, or null. */
+  colorBy: string | null;
+  onColorBy: (columnId: string | null) => void;
 }
 
 /**
  * Table highlight rules (#51): each is a color, a target (the whole row or
  * one column's cell) and conditions built like filters. The first matching
- * rule wins, so rules can be moved up and down.
+ * rule wins, so rules can be moved up and down. Above the rules, Color rows by
+ * (#64) tints every row with its option's color; rules win over it.
  */
-export function HighlightMenu({ columns, rows, rules, onChange }: Props) {
+export function HighlightMenu({ columns, rows, rules, onChange, colorBy, onColorBy }: Props) {
+  const colorable = columns.filter((c) => COLOR_BY_TYPES.has(c.type));
   const set = (i: number, patch: Partial<HighlightRule>) => onChange(rules.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   const move = (i: number, by: number) => {
     const next = [...rules];
@@ -33,9 +39,18 @@ export function HighlightMenu({ columns, rows, rules, onChange }: Props) {
   const label = rules.length ? `Highlight (${rules.length})` : 'Highlight';
 
   return (
-    <Popover label={label} active={rules.length > 0}>
+    <Popover label={label} active={rules.length > 0 || !!colorBy}>
       {() => (
         <div className="space-y-3" aria-label="Highlight rules">
+          <div className="space-y-1">
+            <SelectField
+              label="Color rows by"
+              value={colorBy}
+              options={[{ value: '', label: colorable.length ? 'None' : 'None (no status or select properties)' }, ...colorable.map((c) => ({ value: c.id, label: c.name }))]}
+              onChange={onColorBy}
+            />
+            <p className="text-xs text-slate-500">Each row takes its option’s color. Rules below win over it.</p>
+          </div>
           {rules.length === 0 && <p className="text-slate-500">No rules. Color rows or cells that match conditions, like “Status is Rejected”.</p>}
           {rules.length > 1 && <p className="text-xs text-slate-500">When several rules match, the first one wins.</p>}
           {rules.map((rule, i) => (

@@ -1,13 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { BoardConfig, ChartConfig, View } from '@lensiq/shared';
+import type { BoardConfig, ChartConfig, TableConfig, View } from '@lensiq/shared';
 import type { DatabaseEditing } from '../../editing/useDatabaseEditing';
 import { cleanConfig, referencedColumns } from '../ViewHost';
 import { applied, columns, rows } from '../fixtures';
 import { BoardView } from './BoardView';
 import { ChartView } from './ChartView';
 import { FilterMenu } from './FilterMenu';
+import { HighlightMenu } from './HighlightMenu';
 
 const board: BoardConfig = { filters: [], filterMode: 'and', sorts: [], groupBy: 'stat', cardFields: ['sal'], hideEmptyGroups: false };
 const chart: ChartConfig = {
@@ -115,5 +116,25 @@ describe('deleted properties', () => {
     expect(cleaned.x).toBeNull();
     expect(cleaned.splitBy).toBe('stat');
     expect(cleaned.filters).toEqual([]);
+  });
+
+  it('flags and clears a deleted Color rows by property on a table (#64)', () => {
+    const table: View = { ...view, type: 'table', config: { filters: [], filterMode: 'and', sorts: [], hidden: [], colorBy: 'gone' } satisfies TableConfig };
+    expect(referencedColumns(table)).toEqual(['gone']);
+    expect((cleanConfig(table, columns) as TableConfig).colorBy).toBeNull();
+    const kept: View = { ...table, config: { ...(table.config as TableConfig), colorBy: 'stat' } };
+    expect((cleanConfig(kept, columns) as TableConfig).colorBy).toBe('stat');
+  });
+});
+
+describe('HighlightMenu Color rows by (#64)', () => {
+  it('offers status and select properties only, and reports the choice', async () => {
+    const onColorBy = vi.fn();
+    render(<HighlightMenu columns={columns} rows={rows} rules={[]} onChange={vi.fn()} colorBy={null} onColorBy={onColorBy} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Highlight' }));
+    const select = screen.getByLabelText('Color rows by');
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['None', 'Status']);
+    await userEvent.selectOptions(select, 'stat');
+    expect(onColorBy).toHaveBeenCalledWith('stat');
   });
 });

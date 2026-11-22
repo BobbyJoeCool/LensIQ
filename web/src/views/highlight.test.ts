@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { HighlightRule } from '@lensiq/shared';
-import { cellHighlight, cleanHighlights, highlightColumns, rowHighlight, ruleMatches } from './highlight';
+import type { Column, HighlightRule, Row } from '@lensiq/shared';
+import { cellHighlight, cleanHighlights, colorByColumn, highlightColumns, legendOptions, optionTone, rowHighlight, ruleMatches } from './highlight';
 import { applied, columns, interviewing, offer, rows } from './fixtures';
 
 const ids = new Set(columns.map((c) => c.id));
@@ -60,5 +60,62 @@ describe('highlight rules (#51)', () => {
     expect(cleaned).toHaveLength(1); // the rule coloring a deleted column is dropped
     expect(cleaned[0]!.filters.map((f) => f.columnId)).toEqual(['stat']);
     expect(cleanHighlights(undefined, ids)).toBeUndefined();
+  });
+});
+
+describe('Color rows by (#64)', () => {
+  const stat = columns.find((c) => c.id === 'stat')!;
+  const withStatus = (status: Row['cells'][string]): Row => ({ ...adatum, cells: { ...adatum.cells, stat: status } });
+
+  it('uses a status or select column that still exists, and nothing else', () => {
+    expect(colorByColumn(columns, { colorBy: 'stat' })).toBe(stat);
+    expect(colorByColumn(columns, { colorBy: null })).toBeUndefined();
+    expect(colorByColumn(columns, {})).toBeUndefined(); // older views: none
+    expect(colorByColumn(columns, { colorBy: 'gone' })).toBeUndefined();
+    expect(colorByColumn(columns, { colorBy: 'tags' })).toBeUndefined(); // multi-select isn't offered
+    const select: Column = { id: 'cat', name: 'Category', type: 'select', options: [] };
+    expect(colorByColumn([...columns, select], { colorBy: 'cat' })).toBe(select);
+  });
+
+  it("tints each row with its option's color", () => {
+    expect(rowHighlight(northwind, undefined, columns, undefined, stat)).toEqual({ row: 'yellow', cells: {} });
+    expect(rowHighlight(adatum, [], columns, undefined, stat).row).toBe('green');
+    expect(rowHighlight(adatum, [], columns).row).toBeNull(); // off
+  });
+
+  it("prefers the schema's current option color (recolored in Notion)", () => {
+    const recolored: Column = { ...stat, options: stat.options!.map((o) => (o.id === offer.id ? { ...o, color: 'pink' } : o)) };
+    expect(rowHighlight(adatum, [], columns, undefined, recolored).row).toBe('pink');
+  });
+
+  it('leaves rows with no value, or a Default-colored option, untinted', () => {
+    expect(rowHighlight(withStatus({ kind: 'select', value: null }), [], columns, undefined, stat).row).toBeNull();
+    const plain = { id: 'sx', name: 'Plain', color: 'default' as const };
+    const col: Column = { ...stat, options: [...stat.options!, plain] };
+    expect(rowHighlight(withStatus({ kind: 'select', value: plain }), [], columns, undefined, col).row).toBeNull();
+    expect(optionTone('default')).toBeNull();
+    expect(optionTone('brown')).toBe('brown');
+    expect(optionTone(null)).toBeNull();
+  });
+
+  it('lets highlight rules win: a row rule replaces the color, a cell rule keeps its cell', () => {
+    const red = rule({ filters: [status(offer)], color: 'red' });
+    expect(rowHighlight(adatum, [red], columns, undefined, stat).row).toBe('red');
+    const cell = rule({ filters: [status(offer)], color: 'blue', columnId: 'sal' });
+    const h = rowHighlight(adatum, [cell], columns, undefined, stat);
+    expect(cellHighlight(h, 'sal')).toBe('blue');
+    expect(cellHighlight(h, 'title')).toBe('green');
+  });
+
+  it("lists the options the rows use, in the column's order, for the legend", () => {
+    expect(legendOptions([adatum, northwind, contoso, fabrikam], stat).map((o) => o.name)).toEqual(['Applied', 'Interviewing', 'Offer']);
+    expect(legendOptions([adatum], stat).map((o) => o.name)).toEqual(['Offer']);
+    expect(legendOptions([withStatus({ kind: 'select', value: null })], stat)).toEqual([]);
+    expect(legendOptions(rows, undefined)).toEqual([]);
+  });
+
+  it('counts as a referenced column', () => {
+    expect(highlightColumns(undefined, 'stat')).toEqual(['stat']);
+    expect(highlightColumns([rule({ filters: [status(offer)] })], null)).toEqual(['stat']);
   });
 });
