@@ -17,7 +17,7 @@ export function Popover({
   buttonClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const id = useId();
@@ -32,12 +32,17 @@ export function Popover({
       const vw = document.documentElement.clientWidth;
       const width = Math.min(352, vw - 32);
       const wanted = align === 'right' ? button.right - width : button.left;
-      setPos({ top: button.bottom + 4, left: Math.max(16, Math.min(wanted, vw - width - 16)), width });
+      const top = button.bottom + 4;
+      // Cap at the room left below the button, so the panel's own scroll reaches its end (#63).
+      const vh = window.visualViewport?.height ?? window.innerHeight;
+      setPos({ top, left: Math.max(16, Math.min(wanted, vw - width - 16)), width, maxHeight: Math.max(160, vh - top - 16) });
     };
     place();
     window.addEventListener('resize', place);
     window.addEventListener('scroll', place, true);
+    window.visualViewport?.addEventListener('resize', place);
     return () => {
+      window.visualViewport?.removeEventListener('resize', place);
       window.removeEventListener('resize', place);
       window.removeEventListener('scroll', place, true);
     };
@@ -78,8 +83,8 @@ export function Popover({
           <div
             ref={panelRef}
             id={id}
-            style={pos ? { top: pos.top, left: pos.left, width: pos.width } : { visibility: 'hidden' }}
-            className="fixed z-40 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
+            style={pos ? { top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight } : { visibility: 'hidden' }}
+            className="fixed z-40 overflow-y-auto overscroll-contain rounded-lg border border-slate-200 bg-white p-3 text-sm shadow-xl dark:border-slate-700 dark:bg-slate-900"
           >
             {children(() => setOpen(false))}
           </div>,
