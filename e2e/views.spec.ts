@@ -225,6 +225,7 @@ test('color rows by a status, with a legend so the column can be hidden; rules w
   const rule = page.getByRole('group', { name: 'Rule 1' });
   await rule.getByLabel('Filter property').selectOption({ label: 'Status' });
   await rule.getByRole('checkbox', { name: 'Interviewing' }).click();
+  await expect(rule.getByRole('checkbox', { name: 'Interviewing' })).toBeChecked();
   await rule.getByLabel('Highlight color').selectOption('purple');
   await page.keyboard.press('Escape');
   await expect(northwind).toHaveAttribute('data-highlight', 'purple');
@@ -259,8 +260,10 @@ test('a long Highlight menu scrolls all the way to its last rule (#63)', async (
     await addRule.scrollIntoViewIfNeeded();
     await addRule.click();
   }
-  await page.getByRole('button', { name: 'Remove rule' }).last().scrollIntoViewIfNeeded();
-  await expect(page.getByRole('group', { name: 'Rule 5' })).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole('group', { name: 'Rule 5' })).toHaveCount(1);
+  const lastRemove = page.getByRole('group', { name: 'Rule 5' }).getByRole('button', { name: 'Remove rule' });
+  await lastRemove.scrollIntoViewIfNeeded();
+  await expect(lastRemove).toBeInViewport({ ratio: 1 });
   await addRule.scrollIntoViewIfNeeded();
   await expect(addRule).toBeInViewport({ ratio: 1 });
   const panel = await page.getByLabel('Highlight rules').locator('..').boundingBox();
