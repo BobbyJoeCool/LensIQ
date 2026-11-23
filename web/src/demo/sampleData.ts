@@ -201,7 +201,8 @@ export function buildSample(now = new Date()): { databases: DemoDatabase[]; view
     view('v-jobs-weekly', JOBS_ID, 'Applications per week', 'chart', { ...chartBase, chartType: 'bar', x: 'applied', dateGrouping: 'week', splitBy: 'remote', stacked: true, showValues: 'value' }),
     view('v-jobs-status', JOBS_ID, 'By status', 'chart', { ...chartBase, chartType: 'pie', x: 'status', showValues: 'value', showTotal: true }),
     view('v-jobs-salary', JOBS_ID, 'Average salary', 'chart', { ...chartBase, chartType: 'stat', aggregation: 'avg', y: 'salary', filters: [{ id: 'f1', columnId: 'status', op: 'none_of', value: ['st-rejected', 'st-wish'] }] }),
-    view('v-jobs-next', JOBS_ID, 'Next step this week', 'table', { ...base, filters: [{ id: 'f2', columnId: 'next', op: 'next_days', value: 7 }], sorts: [{ columnId: 'next', direction: 'asc' }], hidden: ['posting', 'tags', 'contacts', 'salary', 'days', 'remote'] }),
+    // Color rows by Status (#64): the legend shows the colors, so the Status column is hidden.
+    view('v-jobs-next', JOBS_ID, 'Next step this week', 'table', { ...base, filters: [{ id: 'f2', columnId: 'next', op: 'next_days', value: 7 }], sorts: [{ columnId: 'next', direction: 'asc' }], hidden: ['status', 'posting', 'tags', 'contacts', 'salary', 'days', 'remote'], colorBy: 'status' }),
     view('v-jobs-cal', JOBS_ID, 'Next steps', 'calendar', { ...base, dateColumn: 'next', colorBy: 'status' }),
     view('v-contacts', CONTACTS_ID, 'Contacts', 'table', { ...base, hidden: [] }),
     view('v-bills-table', BILLS_ID, 'All bills', 'table', { ...base, sorts: [{ columnId: 'due', direction: 'asc' }], hidden: [] }),

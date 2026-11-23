@@ -32,13 +32,13 @@ Notion's free plan allows one chart. LensIQ keeps Notion as the data store and a
 
 - **Edit Notion from LensIQ.** Change cells inline, or in a row panel (with Save and Cancel) on a phone, add rows, delete rows to Notion's trash, and create new select options as you type.
 - **No silent overwrites.** Before every write, the API re-reads the page; if that cell changed in Notion meanwhile, you pick which value to keep.
-- **Notion-style views.** Table, board, chart and calendar tabs on each database, each with its own filters (and/or), sorts and settings. Highlight table rows or cells by rule, color calendar events by status, and write values, percents and totals right on charts.
+- **Notion-style views.** Table, board, chart and calendar tabs on each database, each with its own filters (and/or), sorts and settings. Highlight table rows or cells by rule or color them by a status (with a legend, so the column can be hidden), color calendar events by status, and write values, percents and totals right on charts.
 - **Dashboards.** Any number of pages mixing views from any databases, with tiles of any width and height, in a grid that stacks to one column on a phone. The app opens on your first dashboard.
 - **Relations and files.** Linked pages show by title and edit with a searchable picker; file links always open a fresh download URL.
 - **Installable.** Add it to the iPhone home screen as an app.
 - **Backups.** Export and import every view and dashboard as JSON.
 
-> **Status: v1.2.0, released 2026-11-20.** Everything above is built, tested and running. See the [changelog](CHANGELOG.md) and the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
+> **Status: v1.3.0, released 2026-11-22.** Everything above is built, tested and running. See the [changelog](CHANGELOG.md) and the [issues](https://github.com/BobbyJoeCool/LensIQ/issues).
 
 ## How it works
 

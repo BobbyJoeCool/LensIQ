@@ -13,7 +13,8 @@ import { FilterMenu } from './components/FilterMenu';
 import { BoardSettings, CalendarSettings, ChartSettings, PropertiesMenu } from './components/SettingsMenus';
 import { HighlightMenu } from './components/HighlightMenu';
 import { SortMenu } from './components/SortMenu';
-import { cleanHighlights, highlightColumns } from './highlight';
+import { Chip } from '../components/cells/Cell';
+import { cleanHighlights, colorByColumn, highlightColumns, legendOptions } from './highlight';
 import { applyQuery } from './query';
 import { useViewActions } from './useViews';
 
@@ -30,7 +31,10 @@ export function referencedColumns(view: View): string[] {
     const c = view.config as CalendarConfig;
     return [c.dateColumn, c.colorBy].filter((x): x is string => !!x);
   }
-  if (view.type === 'table') return highlightColumns((view.config as TableConfig).highlights);
+  if (view.type === 'table') {
+    const c = view.config as TableConfig;
+    return highlightColumns(c.highlights, c.colorBy);
+  }
   if (view.type === 'chart') {
     const c = view.config as ChartConfig;
     return [c.chartType !== 'stat' ? c.x : null, c.aggregation !== 'count' ? c.y : null, c.splitBy].filter((x): x is string => !!x);
@@ -48,7 +52,12 @@ export function cleanConfig(view: View, columns: Column[]): ViewConfig {
   };
   if (view.type === 'table') {
     const c = base as TableConfig;
-    return { ...c, hidden: c.hidden.filter((id) => ok.has(id)), ...(c.highlights ? { highlights: cleanHighlights(c.highlights, ok) } : {}) };
+    return {
+      ...c,
+      hidden: c.hidden.filter((id) => ok.has(id)),
+      ...(c.highlights ? { highlights: cleanHighlights(c.highlights, ok) } : {}),
+      ...(c.colorBy && !ok.has(c.colorBy) ? { colorBy: null } : {}),
+    };
   }
   if (view.type === 'board') {
     const c = base as BoardConfig;
@@ -98,6 +107,8 @@ export function ViewHost({ view, compact = false }: { view: View; compact?: bool
   const panelRow = panel?.mode === 'edit' ? allRows.find((r) => r.id === panel.rowId) : undefined;
   const openRow = (rowId: string) => setPanel({ mode: 'edit', rowId });
   const create = (initial?: Record<string, CellValue>) => setPanel({ mode: 'create', initial });
+  const colorBy = view.type === 'table' ? colorByColumn(columns, config as TableConfig) : undefined;
+  const legend = legendOptions(rows, colorBy);
 
   return (
     <CellContext.Provider value={{ dbId: view.databaseId }}>
@@ -108,7 +119,14 @@ export function ViewHost({ view, compact = false }: { view: View; compact?: bool
           {(view.type === 'table' || view.type === 'board') && <SortMenu columns={columns} sorts={config.sorts} onChange={(sorts) => setConfig({ ...config, sorts })} />}
           {view.type === 'table' && <PropertiesMenu columns={columns} config={config as TableConfig} onChange={setConfig} />}
           {view.type === 'table' && (
-            <HighlightMenu columns={columns} rows={allRows} rules={(config as TableConfig).highlights ?? []} onChange={(highlights) => setConfig({ ...(config as TableConfig), highlights })} />
+            <HighlightMenu
+              columns={columns}
+              rows={allRows}
+              rules={(config as TableConfig).highlights ?? []}
+              onChange={(highlights) => setConfig({ ...(config as TableConfig), highlights })}
+              colorBy={colorBy?.id ?? null}
+              onColorBy={(id) => setConfig({ ...(config as TableConfig), colorBy: id })}
+            />
           )}
           {view.type === 'board' && <BoardSettings columns={columns} config={config as BoardConfig} onChange={setConfig} />}
           {view.type === 'chart' && <ChartSettings columns={columns} rows={allRows} config={config as ChartConfig} onChange={setConfig} />}
@@ -142,6 +160,15 @@ export function ViewHost({ view, compact = false }: { view: View; compact?: bool
         </p>
       )}
 
+      {legend.length > 0 && (
+        <ul className="flex flex-wrap items-center gap-1.5" aria-label={`${colorBy!.name} colors`} data-testid="color-legend">
+          {legend.map((o) => (
+            <li key={o.id} className="flex max-w-full">
+              <Chip option={o} />
+            </li>
+          ))}
+        </ul>
+      )}
       {view.type === 'table' && (
         <DatabaseTable
           columns={columns.filter((c) => c.type === 'title' || !(config as TableConfig).hidden.includes(c.id))}
@@ -152,6 +179,7 @@ export function ViewHost({ view, compact = false }: { view: View; compact?: bool
           compact={compact}
           highlights={(config as TableConfig).highlights}
           allColumns={columns}
+          colorBy={colorBy}
         />
       )}
       {view.type === 'calendar' && <CalendarView columns={columns} rows={rows} config={config as CalendarConfig} editing={editing} onOpenRow={openRow} onCreate={create} compact={compact} />}

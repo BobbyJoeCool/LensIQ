@@ -288,6 +288,11 @@ export interface TableConfig extends ViewConfigBase {
   hidden: string[];
   /** Highlight rules in order; when several match, the first wins (#51). Missing means none. */
   highlights?: HighlightRule[];
+  /**
+   * A status or select column whose option colors tint each row (#64).
+   * Highlight rules win over it. Missing or null means none.
+   */
+  colorBy?: string | null;
 }
 
 export interface BoardConfig extends ViewConfigBase {

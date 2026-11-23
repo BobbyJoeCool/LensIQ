@@ -2,6 +2,16 @@
 
 All notable changes to LensIQ are listed here. Versions follow [Semantic Versioning](https://semver.org/). Work before v1.0.0 is tracked in the [GitHub issues](https://github.com/BobbyJoeCool/LensIQ/issues?q=is%3Aissue+Phase).
 
+## [1.3.0] - 2026-11-22
+
+### Added
+
+- **Color rows by a status or select.** A **Color rows by** setting at the top of a table's **Highlight** menu tints each row with its option's Notion color. Highlight rules still win, so they work as exceptions. A legend of the colored badges in use sits above the table, so the property's column can be hidden to save space. Options with Notion's Default color, and empty values, stay uncolored. ([#64](https://github.com/BobbyJoeCool/LensIQ/issues/64))
+
+### Fixed
+
+- A long **Highlight** menu now scrolls all the way to its last rule and **+ Add rule**. The same fix applies to the Filter, Sort and Properties menus, which now fit in the room below their button. ([#63](https://github.com/BobbyJoeCool/LensIQ/issues/63))
+
 ## [1.2.0] - 2026-11-20
 
 ### Added
